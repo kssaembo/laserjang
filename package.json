@@ -1,0 +1,18 @@
+{
+  "name": "laser-janggi-class-arena",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "peerjs": "^1.5.5",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "vite": "^7.1.3"
+  }
+}
