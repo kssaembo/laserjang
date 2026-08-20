@@ -11,6 +11,7 @@ const DIRS = [
   { dr: 1, dc: 0, name: 'S' },
   { dr: 0, dc: -1, name: 'W' },
 ];
+const DIR_LABELS = ['위', '오른쪽', '아래', '왼쪽'];
 const PIECE_NAMES = { laser: '레이저', splitter: '스플리터', king: '왕', triangle: '세모기사', square: '네모기사' };
 const ui = { toastTimer: null };
 let peer = null;
@@ -69,8 +70,8 @@ async function setHostBgm(playing, notifyMissing = false) {
 }
 document.addEventListener('click', e => { if (e.target.closest('button')) sfx.play('click', .55); });
 
-function header(title, subtitle = '') {
-  return `<header class="topbar"><div class="brand-mark">LZ</div><div><p class="eyebrow">THE GENIUS · CLASS EDITION</p><h1>${safe(title)}</h1>${subtitle ? `<p class="subtitle">${safe(subtitle)}</p>` : ''}</div><button class="icon-btn" data-action="home" aria-label="메인 화면">⌂</button></header>`;
+function header(title, subtitle = '', actions = '') {
+  return `<header class="topbar"><div class="brand-mark">LZ</div><div><p class="eyebrow">더 지니어스 한 학급 놀이</p><h1>${safe(title)}</h1>${subtitle ? `<p class="subtitle">${safe(subtitle)}</p>` : ''}</div><div class="topbar-actions">${actions}<button class="icon-btn" data-action="home" aria-label="메인 화면">⌂</button></div></header>`;
 }
 
 function homeView() {
@@ -78,7 +79,7 @@ function homeView() {
   app.innerHTML = `<main class="home shell">
     <section class="hero-panel">
       <img class="title-emblem" src="/images/logos/emblem_title.png" alt="레이저 장기 왕관 문양">
-      <p class="eyebrow">THE GENIUS · CLASS EDITION</p>
+      <p class="eyebrow">더 지니어스 한 학급 놀이</p>
       <h1>레이저 장기</h1>
       <p class="hero-copy">빛의 경로를 설계하고, 상대의 왕을 제거하라.</p>
       <div class="hero-actions">
@@ -107,20 +108,20 @@ function saveHost() {
 function hostView() {
   setScreen('host');
   host = hostState();
-  app.innerHTML = `${header('레이저 장기 관제실', '모든 데이터는 이 탭에만 임시 저장됩니다.')}
+  const endAction = host.started && !host.ended ? '<button class="topbar-end-btn" data-action="open-end-session-modal">게임 종료(게임 초기화)</button>' : '';
+  app.innerHTML = `${header('레이저 장기 관제실', '모든 데이터는 이 탭에만 임시 저장됩니다.', endAction)}
   <main class="host-layout shell wide">
     <section class="panel setup-panel">
       <div class="section-head"><div><p class="kicker">SESSION CONTROL</p><h2>게임 운영</h2></div><span class="live-pill ${host.started && !host.ended ? 'on' : ''}">${host.ended ? '종료됨' : host.started ? '운영 중' : '준비 중'}</span></div>
       <label>게임 이름<input id="room-title" value="${safe(host.title)}" ${host.started ? 'disabled' : ''}></label>
       <label>플레이어 등록 <span class="hint">줄바꿈 또는 쉼표로 구분</span>
-        <textarea id="roster" rows="7" ${host.started ? 'disabled' : ''} placeholder="김민준&#10;이서준&#10;박지호">${safe(host.players.map(p => p.name).join('\n'))}</textarea>
+        <textarea id="roster" rows="10" ${host.started ? 'disabled' : ''} placeholder="홍길동&#10;임꺽정&#10;심청이">${safe(host.players.map(p => p.name).join('\n'))}</textarea>
       </label>
       <div class="button-row">
         ${!host.started ? '<button class="primary" data-action="start-session">게임 운영 시작</button>' : ''}
-        ${host.started && !host.ended ? '<button class="danger" data-action="end-session">게임 운영 종료</button>' : ''}
         ${host.ended ? '<button class="secondary" data-action="new-session">새 게임방</button>' : ''}
       </div>
-      <p class="privacy-note">탭을 닫으면 기록이 사라집니다. 종료 전에 로그를 내려받으세요.</p>
+      <p class="privacy-note">경기 결과는 이 운영 탭에만 임시로 보관됩니다.</p>
       <div class="bgm-control"><div><b>게임 운영 BGM</b><small>교사 운영 페이지에서만 재생</small></div><button class="secondary small" data-action="toggle-bgm">${hostBgm.paused ? '▶ 재생' : 'Ⅱ 일시정지'}</button><input id="bgm-volume" type="range" min="0" max="1" step="0.05" value="${hostBgm.volume}" aria-label="BGM 음량"></div>
     </section>
     <section class="panel connection-panel">
@@ -131,7 +132,7 @@ function hostView() {
     <section class="panel stations-panel"><div class="section-head"><div><p class="kicker">LIVE ARENAS</p><h2>경기장 현황</h2></div><strong>${Object.keys(host.stations).length}대 연결</strong></div><div id="station-grid"></div></section>
     <section class="panel scoreboard-panel"><div class="section-head"><div><p class="kicker">LIVE SCOREBOARD</p><h2>실시간 순위</h2></div><button class="secondary small" data-action="fullscreen-board">전광판 크게 보기</button></div><div id="ranking"></div></section>
     <section class="panel results-panel"><div class="section-head"><div><p class="kicker">MATCH FEED</p><h2>최근 경기 결과</h2></div><span>${host.matches.length}경기 완료</span></div><div id="match-feed"></div></section>
-    <section class="panel export-panel"><div><h2>경기 로그</h2><p>운영 종료 후 CSV와 JSON으로 내려받을 수 있습니다.</p></div><div class="button-row"><button class="secondary" data-action="download-csv" ${!host.matches.length ? 'disabled' : ''}>CSV 다운로드</button><button class="secondary" data-action="download-json" ${!host.matches.length ? 'disabled' : ''}>JSON 다운로드</button><button class="danger ghost" data-action="purge" ${!host.ended ? 'disabled' : ''}>기록 완전 삭제</button></div></section>
+    <section class="panel export-panel"><div class="export-copy"><h2>경기 결과 및 과정</h2><p>게임 종료 후 복사하기 버튼을 클릭하고 한셀/엑셀에 붙여넣기 하시면 경기 결과와 과정을 확인할 수 있습니다.</p><p class="volatile-warning">게임을 종료하면 모든 게임 결과는 초기화 됩니다.</p></div><div class="button-row"><button class="primary" data-action="copy-match-log" ${!host.ended || !host.matches.length ? 'disabled' : ''}>경기 결과/과정 복사하기</button></div></section>
   </main>`;
   renderHostDynamic();
   const studentUrl = `${location.origin}${location.pathname}?mode=station&room=${host.room}`;
@@ -229,7 +230,7 @@ function handleHostMessage(conn, data) {
     if (!active) return conn.send({ type: 'RESULT_REJECTED', reason: '호스트에서 진행 중인 경기 정보를 찾지 못했습니다.' });
     const winnerId = data.winnerId;
     const loserId = winnerId === active.blueId ? active.redId : active.blueId;
-    const result = { ...active, winnerId, loserId, winnerName: winnerId === active.blueId ? active.blueName : active.redName, loserName: winnerId === active.blueId ? active.redName : active.blueName, endedAt: now(), durationMs: data.durationMs, turnCount: data.turnCount, reason: data.reason || 'king_destroyed' };
+    const result = { ...active, winnerId, loserId, winnerName: winnerId === active.blueId ? active.blueName : active.redName, loserName: winnerId === active.blueId ? active.redName : active.blueName, endedAt: now(), durationMs: data.durationMs, turnCount: data.turnCount, reason: data.reason || 'king_destroyed', processLog: Array.isArray(data.processLog) ? data.processLog : [] };
     host.matches.push(result);
     delete host.active[data.matchId];
     Object.assign(host.stations[data.stationId], { status: 'ready', activeMatchId: null, lastSeen: now() });
@@ -340,25 +341,35 @@ function initialPieces() {
 function startLocalGame(match, practice = false) {
   station.match = match;
   station.status = 'playing';
-  station.game = { pieces: initialPieces(), turn: 'blue', turnCount: 0, selectedId: null, startedAt: match.startedAt || now(), beams: [], message: '청색 플레이어의 차례입니다.', over: false, practice };
+  station.game = { pieces: initialPieces(), turn: 'blue', turnCount: 0, selectedId: null, startedAt: match.startedAt || now(), beams: [], processLog: [], message: '청색 플레이어의 차례입니다.', over: false, practice };
   saveStation(); sendHeartbeat(); sfx.play('start', .8); gameView(practice);
 }
 
 function pieceAsset(p) { return `/images/pieces/${p.owner}/piece_${p.type}_${p.owner}.png`; }
 function pieceAt(r, c) { return station.game.pieces.find(p => p.alive && p.r === r && p.c === c); }
+function playerHud(owner, name) {
+  const g = station.game;
+  const active = !g.over && g.turn === owner;
+  const sideName = owner === 'blue' ? '청색' : '적색';
+  return `<header class="game-hud ${owner}-hud ${active ? 'active-side' : ''}">
+    <button class="rotate-key rotate-left-key" data-action="rotate-left" data-side="${owner}" ${active ? '' : 'disabled'} aria-label="${sideName} 왼쪽 회전"><b>↶</b><span>왼쪽 회전</span></button>
+    <div class="hud-player"><span>${sideName}</span><strong>${safe(name)}</strong><div class="turn-signal ${active ? 'active' : ''}">${active ? '현재 차례' : '대기'}</div></div>
+    <button class="rotate-key rotate-right-key" data-action="rotate-right" data-side="${owner}" ${active ? '' : 'disabled'} aria-label="${sideName} 오른쪽 회전"><span>오른쪽 회전</span><b>↷</b></button>
+  </header>`;
+}
 function gameView(practice = station.game?.practice) {
   const g = station.game;
   if (!g) return stationLobbyView();
+  g.processLog ||= [];
   setScreen(g.over ? 'result' : 'game');
   const blue = station.match.blueName, red = station.match.redName;
   app.innerHTML = `<main class="game-screen">
-    <header class="game-hud red-hud"><div><span>적색</span><strong>${safe(red)}</strong></div><div class="turn-signal ${g.turn === 'red' ? 'active' : ''}">${g.turn === 'red' ? '현재 차례' : '대기'}</div></header>
+    ${playerHud('red', red)}
     <section class="board-stage"><div class="game-info"><span>${safe(station.number)}번 경기장</span><b id="game-clock">${fmtTime(now() - g.startedAt)}</b><span><i id="turn-count">${g.turnCount}</i>턴</span></div>
       <div class="board-wrap"><div id="board" class="board"></div><svg id="laser-layer" viewBox="0 0 ${COLS} ${ROWS}" preserveAspectRatio="none"></svg></div>
       <div class="game-message" id="game-message">${safe(g.message)}</div>
-      <div class="game-controls"><button class="secondary" data-action="rotate-left">↶ 왼쪽 회전</button><button class="secondary" data-action="rotate-right">오른쪽 회전 ↷</button><button class="danger ghost" data-action="abort-match">경기 취소</button></div>
     </section>
-    <header class="game-hud blue-hud"><div><span>청색</span><strong>${safe(blue)}</strong></div><div class="turn-signal ${g.turn === 'blue' ? 'active' : ''}">${g.turn === 'blue' ? '현재 차례' : '대기'}</div></header>
+    ${playerHud('blue', blue)}
     ${g.over ? resultOverlay() : ''}
   </main>`;
   renderBoard();
@@ -387,24 +398,30 @@ function handleCell(r, c) {
   if (selected.type === 'laser') return toast('레이저는 이동할 수 없습니다. 방향만 바꿀 수 있습니다.', 'error');
   if (p) return toast('다른 말이 있는 칸으로 이동할 수 없습니다.', 'error');
   if (Math.max(Math.abs(selected.r - r), Math.abs(selected.c - c)) !== 1) return toast('상하좌우 또는 대각선으로 한 칸만 이동할 수 있습니다.', 'error');
-  selected.r = r; selected.c = c; sfx.play('move'); completeAction();
+  const action = `${PIECE_NAMES[selected.type]} ${selected.r + 1}행 ${selected.c + 1}열 → ${r + 1}행 ${c + 1}열 이동`;
+  selected.r = r; selected.c = c; sfx.play('move'); completeAction(action);
 }
 
-function rotateSelected(delta) {
+function rotateSelected(delta, requestedSide = '') {
   const g = station.game; if (!g || g.over) return;
+  if (requestedSide && requestedSide !== g.turn) return toast('현재 차례의 조작 버튼을 사용하세요.', 'error');
   const p = g.pieces.find(x => x.id === g.selectedId);
   if (!p) return toast('회전할 말을 먼저 선택하세요.', 'error');
+  const previous = p.dir;
   const next = (p.dir + delta + 4) % 4;
   if (p.type === 'laser') {
     const nr = p.r + DIRS[next].dr, nc = p.c + DIRS[next].dc;
     if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return toast('레이저를 게임판 바깥쪽으로 돌릴 수 없습니다.', 'error');
   }
-  p.dir = next; sfx.play('rotate'); completeAction();
+  p.dir = next; sfx.play('rotate'); completeAction(`${PIECE_NAMES[p.type]} ${delta < 0 ? '왼쪽' : '오른쪽'} 90도 회전 (${DIR_LABELS[previous]} → ${DIR_LABELS[next]})`);
 }
 
-function completeAction() {
+function completeAction(action) {
   const g = station.game;
-  g.selectedId = null; g.turnCount += 1; g.message = '레이저 발사!'; saveStation(); gameView();
+  g.selectedId = null; g.turnCount += 1;
+  g.processLog ||= [];
+  g.processLog.push({ turn: g.turnCount, side: g.turn, playerName: g.turn === 'blue' ? station.match.blueName : station.match.redName, action, laserResult: '', elapsedMs: now() - g.startedAt });
+  g.message = '레이저 발사!'; saveStation(); gameView();
   setTimeout(() => fireLaser(g.turn), 180);
 }
 
@@ -452,16 +469,21 @@ function fireLaser(owner) {
   beamFx.forEach((name, i) => setTimeout(() => sfx.play(name, .65), 110 + i * 85));
   setTimeout(() => {
     const uniqueHits = [...new Map(hits.map(hit => [hit.id, hit])).values()];
+    const processEntry = g.processLog?.[g.processLog.length - 1];
+    const opticalText = beamFx.length ? `반사·분리 ${beamFx.length}회 · ` : '';
     if (uniqueHits.length) {
       uniqueHits.forEach(hit => { hit.alive = false; });
       const kingHit = uniqueHits.find(hit => hit.type === 'king');
       if (kingHit) {
         sfx.play('king'); setTimeout(() => sfx.play('victory', .85), 520);
-        g.over = true; g.winnerId = owner === 'blue' ? station.match.blueId : station.match.redId; g.message = `${owner === 'blue' ? station.match.blueName : station.match.redName} 승리!`; saveStation(); gameView(); return;
+        g.over = true; g.winnerId = owner === 'blue' ? station.match.blueId : station.match.redId; g.message = `${owner === 'blue' ? station.match.blueName : station.match.redName} 승리!`;
+        if (processEntry) processEntry.laserResult = `${opticalText}${kingHit.owner === 'blue' ? '청색' : '적색'} 왕 제거 · 경기 종료`;
+        saveStation(); gameView(); return;
       }
       sfx.play('destroy');
       g.message = uniqueHits.map(hit => `${hit.owner === 'blue' ? '청색' : '적색'} ${PIECE_NAMES[hit.type]}`).join(', ') + ' 제거';
     } else g.message = '레이저가 판 밖으로 빠져나갔습니다.';
+    if (processEntry) processEntry.laserResult = `${opticalText}${g.message}`;
     g.turn = owner === 'blue' ? 'red' : 'blue'; saveStation(); gameView(); sendHeartbeat();
   }, Math.min(1100, 280 + segments.length * 45));
 }
@@ -485,13 +507,27 @@ function resultAcceptedView() {
   let n = 3; const timer = setInterval(() => { n--; const el = document.querySelector('#countdown'); if (el) el.textContent = n; if (n <= 0) { clearInterval(timer); stationLobbyView(); connectStation(); } }, 1000);
 }
 
-function download(name, content, type) {
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff', content], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+function buildMatchClipboard() {
+  const summaryHeader = ['경기ID', '경기장', '청색선수', '적색선수', '승자', '패자', '경기시간(초)', '턴수', '시작시각', '종료시각'];
+  const summaryRows = host.matches.map(m => [m.matchId, m.stationNumber, m.blueName, m.redName, m.winnerName, m.loserName, Math.round(m.durationMs / 1000), m.turnCount, new Date(m.startedAt).toLocaleString('ko-KR'), new Date(m.endedAt).toLocaleString('ko-KR')]);
+  const processHeader = ['경기ID', '경기장', '턴', '선수', '진영', '행동', '레이저 결과', '경과시간'];
+  const processRows = host.matches.flatMap(m => (m.processLog || []).map(entry => [m.matchId, m.stationNumber, entry.turn, entry.playerName, entry.side === 'blue' ? '청색' : '적색', entry.action, entry.laserResult || '', fmtTime(entry.elapsedMs || 0)]));
+  return ['레이저 장기 경기 결과', summaryHeader.join('\t'), ...summaryRows.map(row => row.join('\t')), '', '레이저 장기 경기 과정', processHeader.join('\t'), ...processRows.map(row => row.join('\t'))].join('\n');
 }
-function csvLog() {
-  const head = ['경기ID','경기장','청색선수','적색선수','승자','패자','경기시간(초)','턴수','시작시각','종료시각'];
-  const rows = host.matches.map(m => [m.matchId,m.stationNumber,m.blueName,m.redName,m.winnerName,m.loserName,Math.round(m.durationMs/1000),m.turnCount,new Date(m.startedAt).toLocaleString('ko-KR'),new Date(m.endedAt).toLocaleString('ko-KR')]);
-  return [head, ...rows].map(row => row.map(v => `"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+
+async function copyText(value) {
+  try { await navigator.clipboard.writeText(value); }
+  catch {
+    const textarea = document.createElement('textarea');
+    textarea.value = value; textarea.style.position = 'fixed'; textarea.style.opacity = '0';
+    document.body.appendChild(textarea); textarea.select(); document.execCommand('copy'); textarea.remove();
+  }
+}
+
+function showEndSessionModal() {
+  document.querySelector('.session-modal-overlay')?.remove();
+  const activeCount = Object.keys(host.active).length;
+  document.body.insertAdjacentHTML('beforeend', `<div class="session-modal-overlay" role="presentation"><section class="session-modal" role="dialog" aria-modal="true" aria-labelledby="end-session-title"><div class="modal-symbol">◈</div><p class="kicker">SESSION END</p><h2 id="end-session-title">게임 운영을 종료할까요?</h2><p>학생 태블릿의 새 경기 시작이 차단되고 운영 BGM이 정지됩니다.</p>${activeCount ? `<div class="modal-alert">현재 ${activeCount}개의 경기가 진행 중입니다.</div>` : ''}<p class="modal-note">완료된 결과는 복사를 위해 현재 화면에만 유지되며, 새 게임방을 시작하거나 탭을 닫으면 초기화됩니다.</p><div class="button-row"><button class="secondary" data-action="close-session-modal">계속 운영하기</button><button class="danger" data-action="confirm-end-session">게임 종료</button></div></section></div>`);
 }
 
 document.addEventListener('click', async e => {
@@ -509,33 +545,28 @@ document.addEventListener('click', async e => {
     if (new Set(names).size !== names.length) return toast('중복된 이름이 있습니다.', 'error');
     host.title = document.querySelector('#room-title').value.trim() || '우리 반 레이저 장기'; host.players = names.map((name, i) => ({ id: `p-${i + 1}`, name })); host.started = true; host.ended = false; sfx.play('confirm'); setHostBgm(true); saveHost(); hostView();
   }
-  if (action === 'end-session') {
-    if (Object.keys(host.active).length && !confirm('진행 중인 경기가 있습니다. 그래도 운영을 종료할까요?')) return;
+  if (action === 'open-end-session-modal') showEndSessionModal();
+  if (action === 'close-session-modal') document.querySelector('.session-modal-overlay')?.remove();
+  if (action === 'confirm-end-session') {
+    document.querySelector('.session-modal-overlay')?.remove();
     host.ended = true; setHostBgm(false); saveHost(); broadcastRoster(); hostView();
   }
   if (action === 'new-session') { sessionStorage.removeItem('laser-host'); host = null; peer?.destroy(); peer = null; hostView(); }
   if (action === 'copy-link') { await navigator.clipboard.writeText(`${location.origin}${location.pathname}?mode=station&room=${host.room}`); toast('학생 접속 링크를 복사했습니다.', 'success'); }
   if (action === 'fullscreen-board') document.querySelector('.scoreboard-panel')?.requestFullscreen();
   if (action === 'toggle-bgm') { await setHostBgm(hostBgm.paused, true); hostView(); }
-  if (action === 'download-csv') download(`레이저장기_${host.room}_경기로그.csv`, csvLog(), 'text/csv;charset=utf-8');
-  if (action === 'download-json') download(`레이저장기_${host.room}_전체기록.json`, JSON.stringify({ title: host.title, room: host.room, createdAt: host.createdAt, exportedAt: now(), players: host.players, matches: host.matches, ranking: standings() }, null, 2), 'application/json');
-  if (action === 'purge') { if (confirm('모든 경기 기록을 삭제할까요? 삭제 후 복구할 수 없습니다.')) { sessionStorage.removeItem('laser-host'); peer?.destroy(); navigate(''); } }
+  if (action === 'copy-match-log') { await copyText(buildMatchClipboard()); sfx.play('confirm'); toast('경기 결과와 과정을 복사했습니다. 한셀 또는 엑셀에 붙여넣으세요.', 'success'); }
   if (action === 'request-match') {
     const blueId = document.querySelector('#blue-player').value, redId = document.querySelector('#red-player').value;
     if (!blueId || !redId || blueId === redId) return toast('서로 다른 두 명을 선택하세요.', 'error');
     stationConnection.send({ type: 'MATCH_START_REQUEST', stationId: station.stationId, stationNumber: station.number, blueId, redId }); toast('교사 화면에서 참가 가능 여부를 확인 중입니다.');
   }
   if (action === 'resume-game') gameView();
-  if (action === 'rotate-left') rotateSelected(-1);
-  if (action === 'rotate-right') rotateSelected(1);
-  if (action === 'abort-match') {
-    if (!confirm('이 경기를 취소할까요? 전적에는 반영되지 않습니다.')) return;
-    const wasPractice = station.game?.practice;
-    if (stationConnection?.open) stationConnection.send({ type: 'MATCH_ABORT', stationId: station.stationId, matchId: station.match?.matchId }); station.game = null; station.match = null; saveStation(); wasPractice ? stationView(true) : stationLobbyView();
-  }
+  if (action === 'rotate-left') rotateSelected(-1, e.target.closest('[data-action]')?.dataset.side || '');
+  if (action === 'rotate-right') rotateSelected(1, e.target.closest('[data-action]')?.dataset.side || '');
   if (action === 'submit-result') {
     if (!stationConnection?.open) return toast('교사 화면과 다시 연결된 뒤 결과를 전송합니다.', 'error');
-    const g = station.game; stationConnection.send({ type: 'MATCH_RESULT', stationId: station.stationId, matchId: station.match.matchId, winnerId: g.winnerId, durationMs: now() - g.startedAt, turnCount: g.turnCount, reason: 'king_destroyed' }); toast('결과를 전송하고 있습니다.');
+    const g = station.game; stationConnection.send({ type: 'MATCH_RESULT', stationId: station.stationId, matchId: station.match.matchId, winnerId: g.winnerId, durationMs: now() - g.startedAt, turnCount: g.turnCount, processLog: g.processLog || [], reason: 'king_destroyed' }); toast('결과를 전송하고 있습니다.');
   }
   if (action === 'practice-rematch') { station.game = null; startLocalGame({ ...station.match, matchId: uid('practice'), startedAt: now() }, true); }
 });
