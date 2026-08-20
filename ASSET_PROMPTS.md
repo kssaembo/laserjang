@@ -1,116 +1,202 @@
-# 레이저 장기 이미지·효과음·BGM 생성 프롬프트
+# 레이저 장기 디자인 에셋 제작 가이드
 
-## 공통 아트 디렉션
+## 1. 공통 디자인 방향
 
-- 초등학교 고학년용 전략 보드게임
-- 딥 네이비, 매트 블랙, 앰버 골드, 사이버 블루, 크림슨 레드
-- 고급 3D 보드게임 소품, 굵고 명확한 실루엣
-- 폭력적이거나 무서운 표현 없이 지적인 긴장감
-- 글자, 숫자, 로고, 워터마크 없음
+- 콘셉트: 미래형 전략 보드게임 × 두뇌 서바이벌 경기장
+- 색상: 딥 네이비, 매트 블랙, 아이보리, 앰버 골드
+- 플레이어 색상: 청색은 사이버 블루, 적색은 크림슨 레드
+- 거울과 레이저 에너지: 옅은 민트·청록색
+- 형태: 초등학생도 한눈에 구분할 수 있는 굵고 단순한 실루엣
+- 분위기: 지적이고 고급스럽되 공포·무기·전쟁·카지노 분위기는 배제
+- 금지: 방송 로고, 실제 프로그램 로고, 인물, 글자, 숫자, 워터마크
 
-## 이미지
+제공된 방송 화면의 다섯 상징은 **기능을 알아보게 하는 참고 자료**로만 사용한다. 삼각형·대각 거울·왕관·상단 발사선이라는 핵심 인지 요소는 남기되, 외곽 실루엣·받침·재질·세부 문양은 새롭게 설계한다.
 
-### `main-background.webp` · 메인 배경 · 1920×1080
+---
 
-> 초등학생용 미래 전략 보드게임 '레이저 장기'의 시네마틱 메인 배경. 어두운 딥 네이비의 거대한 미래형 경기장 중앙에 정교한 사각 격자 보드가 놓여 있고, 보드 위로 사이버 블루 레이저와 크림슨 레드 레이저가 여러 거울을 통해 직각으로 반사되며 교차한다. 중앙에는 왕을 상징하는 추상적인 금빛 홀로그램 왕관 실루엣. 앰버 골드 금속 테두리와 은은한 안개, 고급 두뇌 서바이벌 프로그램 분위기. 인물, 글자, 숫자, 실제 로고, 워터마크 없음. 화면 중앙과 하단에 UI를 배치할 수 있도록 여백 확보, 16:9, 1920×1080.
+## 2. 필요한 이미지 파일 목록
 
-### `control-room-background.webp` · 교사 운영 페이지 · 1920×1080
+### 필수 17개
 
-> 미래형 게임 관제실 배경. 어두운 매트 블랙과 딥 네이비 공간, 벽면에 여러 경기장의 상태를 암시하는 작은 홀로그램 패널과 빛나는 격자 지도, 앰버 골드와 사이버 블루 포인트 조명. 화면 위에 실제 텍스트나 숫자는 없고 정보 패널을 올리기 쉬운 낮은 대비, 전문적이지만 초등학생에게 친근한 고급 게임 쇼 분위기, 인물 없음, 로고 없음, 16:9, 1920×1080.
+| 구분 | 파일명 | 규격 | 배경 |
+|---|---|---:|---|
+| 메인 배경 | `bg_main.webp` | 1920×1080 | 불투명 |
+| 교사 운영 배경 | `bg_host.webp` | 1920×1080 | 불투명 |
+| 학생 경기 배경 | `bg_arena.webp` | 1920×1080 | 불투명 |
+| 전광판 배경 | `bg_scoreboard.webp` | 1920×1080 | 불투명 |
+| 결과 배경 | `bg_result.webp` | 1920×1080 | 불투명 |
+| 타이틀 엠블럼 | `emblem_title.png` | 1200×500 | 투명 |
+| 결과 왕관 | `emblem_victory.png` | 800×800 | 투명 |
+| 청색 세모기사 | `piece_triangle_blue.png` | 512×512 | 투명 |
+| 적색 세모기사 | `piece_triangle_red.png` | 512×512 | 투명 |
+| 청색 스플리터 | `piece_splitter_blue.png` | 512×512 | 투명 |
+| 적색 스플리터 | `piece_splitter_red.png` | 512×512 | 투명 |
+| 청색 왕 | `piece_king_blue.png` | 512×512 | 투명 |
+| 적색 왕 | `piece_king_red.png` | 512×512 | 투명 |
+| 청색 네모기사 | `piece_square_blue.png` | 512×512 | 투명 |
+| 적색 네모기사 | `piece_square_red.png` | 512×512 | 투명 |
+| 청색 레이저 | `piece_laser_blue.png` | 512×512 | 투명 |
+| 적색 레이저 | `piece_laser_red.png` | 512×512 | 투명 |
 
-### `game-board-background.webp` · 경기장 배경 · 1920×1080
+다음 요소는 이미지로 만들지 않고 CSS로 처리하는 편이 선명하고 반응형 화면에 유리하다.
 
-> 정면에 가까운 약간의 탑뷰로 본 미래형 레이저 장기 경기장. 중앙은 UI 게임판을 올릴 수 있도록 비어 있고, 주변에 어두운 금속 프레임과 얇은 앰버 골드 회로, 왼쪽은 차가운 사이버 블루 에너지, 오른쪽은 선명한 크림슨 레드 에너지가 은은하게 빛난다. 과도한 장식 없이 전략 게임에 집중되는 구성, 글자·숫자·인물·로고 없음, 16:9, 1920×1080.
+- 게임판 격자와 금속 프레임
+- 실제 레이저 광선과 반사 애니메이션
+- 선택 테두리·이동 가능 칸·비활성 상태
+- 버튼·패널·QR 프레임·경기장 번호 배지
+- 접속 상태 점·승점표·순위 숫자
 
-### `result-background.webp` · 결과 화면 · 1920×1080
+---
 
-> 미래 전략 게임 승리 결과 배경. 깊은 네이비 공간 중앙에서 금빛 왕관 형상의 홀로그램이 떠오르고, 가느다란 사이버 블루와 크림슨 레드 레이저 조각이 바깥으로 퍼지는 장면. 절제된 금빛 파티클과 승리의 광채, 폭발이나 무기 느낌 없이 지적이고 장엄한 분위기. 중앙에 결과 UI를 위한 어두운 여백, 글자·숫자·로고 없음, 16:9, 1920×1080.
+## 3. 배경 이미지 프롬프트
 
-### `piece-blue-*.png`, `piece-red-*.png` · 말 세트 · 각 512×512 투명 PNG
+### `bg_main.webp`
 
-각 말은 반드시 한 장에 하나씩 생성합니다. 아래 `{말}`을 교체합니다.
+> 초등학교 고학년용 미래 전략 보드게임 ‘레이저 장기’의 메인 화면 배경. 거대한 딥 네이비 미래형 경기장 중앙에 정교한 10×8 격자 보드가 놓여 있고, 사이버 블루와 크림슨 레드의 가느다란 레이저가 민트색 거울 프리즘을 통해 직각으로 반사되며 교차한다. 중앙 상단에는 왕을 암시하는 추상적인 앰버 골드 홀로그램 코어. 고급 게임 쇼와 프리미엄 보드게임이 결합된 분위기, 지적이고 긴장감 있지만 초등학생에게 무섭지 않음. 제목과 버튼을 올릴 중앙 영역은 어둡고 단순하게 비워둔다. 인물, 글자, 숫자, 방송 로고, 워터마크 없음. 16:9, 1920×1080.
 
-> 초등학생용 미래 전략 보드게임의 {말} 말 하나. 단단한 금속과 반투명 에너지 크리스털이 결합된 고급 3D 보드게임 피규어. {청색은 사이버 블루 빛과 은회색 금속 / 적색은 크림슨 레드 빛과 흑철 금속}, 거울면은 밝은 크림색 반사판으로 방향이 즉시 구분되는 굵은 실루엣. 작은 사각 받침 포함. 정면보다 약간 높은 3/4 시점, 중앙 배치, 투명 배경, 글자·숫자·로고·워터마크 없음, 512×512 PNG.
+### `bg_host.webp`
 
-말별 형태 지시:
+> 학급용 레이저 전략 게임의 미래형 교사 관제실 배경. 딥 네이비와 매트 블랙의 넓은 공간, 여러 경기장의 연결 상태와 순위를 암시하는 추상 홀로그램 패널, 얇은 앰버 골드 프레임과 사이버 블루 데이터 라인. 실제 읽을 수 있는 글자나 숫자는 넣지 않는다. 정보 카드가 올라갈 중앙과 좌우 영역은 낮은 대비와 충분한 여백, 게임 운영자의 집중을 돕는 정돈된 구도. 게임 운영실답게 세련되고 명확하지만 영화 속 군사 지휘소처럼 보이지 않음. 인물, 로고, 워터마크 없음. 16:9, 1920×1080.
 
-- 레이저: 움직이지 않는 소형 미래형 레이저 포탑, 한쪽 발사구가 명확함
-- 스플리터: 마름모꼴 투명 프리즘, 직진 투과와 직각 반사를 동시에 상징
-- 왕: 금빛 왕관과 보석 코어, 어느 면도 보호되지 않은 형태
-- 세모기사: 삼각기둥, 한쪽 대각 거울면이 명확함
-- 네모기사: 사각기둥, 한쪽 대각 거울면이 명확함
+### `bg_arena.webp`
 
-### `laser-warning.png` · 왕 피격 경고 · 1200×400 투명 PNG
+> 한 대의 태블릿에서 두 학생이 대전하는 미래형 레이저 장기 경기장 배경. 정면에 가까운 탑뷰, 중앙에는 웹 게임판을 올릴 수 있는 넓고 어두운 빈 공간, 위쪽은 절제된 크림슨 레드 에너지, 아래쪽은 사이버 블루 에너지가 대칭으로 흐른다. 주변에는 얇은 금속 프레임과 민트색 프리즘 반사광, 앰버 골드 회로 장식. 실제 말이나 격자는 그리지 않는다. 과도한 연기·폭발·무기 표현 없음. 글자, 숫자, 인물, 로고, 워터마크 없음. 16:9, 1920×1080.
 
-> 미래 전략 게임의 왕 피격 경고 장식. 중앙의 금빛 왕관 실루엣에 얇은 붉은 레이저 균열이 지나가고 양옆으로 절제된 크림슨 경고 프레임이 펼쳐진다. 폭력적인 표현 없이 긴박한 게임 종료를 전달, 글자·숫자·로고 없음, 투명 배경 PNG, 1200×400.
+### `bg_scoreboard.webp`
 
-## 효과음
+> 학급 전략 게임 중앙 전광판용 배경. 딥 네이비 무대 위에 넓은 중앙 디지털 패널을 위한 검은 여백, 양옆에 청색과 적색의 얇은 수직 에너지 기둥, 상단과 하단에 절제된 앰버 골드 금속 장식. 경기 현황과 순위 표가 가장 잘 보이도록 낮은 대비, 깨끗하고 대칭적인 구성. 글자, 숫자, 순위, 로고, 인물 없음. 16:9, 1920×1080.
 
-효과음은 모두 무음 여백 없이 생성하며 WAV 또는 고음질 MP3로 저장합니다.
+### `bg_result.webp`
 
-### `click.mp3` · 0.12초
+> 레이저 장기 승리 결과 화면 배경. 깊은 네이비 공간 중앙에 추상적인 금빛 왕관 코어가 떠오르고, 사이버 블루와 크림슨 레드의 레이저 조각이 거울에 반사되어 바깥으로 펼쳐진다. 절제된 금빛 파티클, 승리의 에너지 링, 지적이고 장엄하지만 영화 포스터처럼 과장되지 않은 게임 결과 화면. 중앙 결과 패널을 위한 어두운 여백. 글자, 숫자, 인물, 실제 로고, 워터마크 없음. 16:9, 1920×1080.
 
-> Clean futuristic UI click, short tactile glass-and-metal tick, subtle cyber blue sparkle, premium strategy board game interface, no reverb tail, no voice, 0.12 seconds.
+---
 
-### `piece-select.mp3` · 0.25초
+## 4. 엠블럼 프롬프트
 
-> Futuristic board game piece selected, compact crystalline pulse with a soft metallic lock, intelligent and precise, child-friendly, no voice, no explosion, 0.25 seconds.
+### `emblem_title.png`
 
-### `piece-move.mp3` · 0.35초
+> 미래 전략 보드게임의 타이틀 뒤에 배치할 장식 엠블럼. 중앙의 작은 금빛 왕관 코어, 양옆으로 대칭적으로 뻗는 사이버 블루와 크림슨 레드 레이저, 레이저를 직각으로 꺾는 민트색 유리 프리즘 두 개, 얇은 앰버 골드 금속 프레임. 웹에서 한글 제목을 별도로 올릴 수 있도록 중앙은 비어 있음. 글자, 숫자, 방송 로고, 워터마크 없음. 가로로 긴 구성, 투명 배경 PNG, 1200×500.
 
-> Heavy premium board game piece sliding exactly one square on a metal-glass board, short low mechanical glide ending in a satisfying magnetic lock, no voice, 0.35 seconds.
+### `emblem_victory.png`
 
-### `piece-rotate.mp3` · 0.4초
+> 미래 전략 보드게임의 승리 왕관 엠블럼 하나. 방송 화면의 단순 왕관 개념만 참고하되 형태는 새롭게 재설계한다. 세 개의 뾰족한 봉우리 대신 다섯 개의 낮은 기하학 봉우리, 중앙에는 민트색 광학 코어, 바깥에는 앰버 골드 금속과 얇은 레이저 링. 고급 3D 보드게임 장식, 무기나 제국 문장처럼 보이지 않음. 글자·숫자·로고·워터마크 없음. 중앙 배치, 투명 배경 PNG, 800×800.
 
-> Small futuristic prism rotating ninety degrees, two-step mechanical turn with a bright glass shimmer at the end, precise strategy game sound, no voice, 0.4 seconds.
+---
 
-### `laser-fire.mp3` · 0.9초
+## 5. 다섯 종류 말 디자인
 
-> Clean sci-fi laser charging for a split second then firing across a glass board, sharp energetic beam with a controlled electronic tail, exciting but not aggressive, child-friendly, no explosion, no voice, 0.9 seconds.
+### 모든 말 공통 조건
 
-### `laser-reflect.mp3` · 0.18초
+> 실제 웹 게임판 위에서 이동하고 90도씩 회전하는 플레이용 보드게임 말 하나만 중앙 배치. 캐릭터 소개용 정면 이미지가 아니다. 카메라는 말의 정중앙 바로 위에 놓인 완전한 수직 90도 탑뷰이며, 정사영 렌즈를 사용해 측면 두께·옆면·수평선이 전혀 보이지 않게 한다. 윗면 실루엣과 기능 표식만으로 종류와 방향을 즉시 구분할 수 있어야 한다. 말의 정면은 이미지 위쪽을 향하고, 거울면·프리즘 채널·레이저 발사구의 방향이 윗면에서 굵고 선명하게 보인다. 90도 회전해도 조명과 그림자가 어색하지 않도록 중심 대칭의 부드러운 상부 조명, 바닥 그림자와 긴 투영 그림자 없음. 하나의 말이 캔버스의 약 80%를 차지하고 네 변에 균등한 안전 여백을 둔다. 화면 속 원본 기호를 그대로 복제하지 않고 기능을 알아보는 핵심 구조만 참고한다. 작은 태블릿에서도 명확한 굵은 실루엣, 과도하게 복잡한 장식 없음. 글자, 숫자, 방송 로고, 워터마크 없음. 투명 배경 PNG, 512×512.
 
-> Tiny bright laser beam reflection from a crystal mirror, crisp high-frequency ping with a fast directional whoosh, no voice, 0.18 seconds.
+청색 버전에는 다음을 추가한다.
 
-### `splitter.mp3` · 0.35초
+> 은회색 금속 몸체, 사이버 블루 에너지 코어와 얇은 청색 발광 테두리.
 
-> Laser beam splitting into two paths through a crystal prism, one straight tone dividing into two sparkling stereo tones, futuristic and clear, no voice, 0.35 seconds.
+적색 버전에는 다음을 추가한다.
 
-### `piece-destroy.mp3` · 0.65초
+> 흑철색 금속 몸체, 크림슨 레드 에너지 코어와 얇은 적색 발광 테두리.
 
-> Futuristic board game piece deactivating after a laser hit, compact energy crackle and low metallic dissolve, no violence, no explosion, child-friendly, no voice, 0.65 seconds.
+색상만 바꾸고 말의 크기·시점·형태·거울 방향은 두 플레이어가 완전히 같아야 한다.
 
-### `king-hit.mp3` · 1.4초
+### 세모기사 · `piece_triangle_blue.png`, `piece_triangle_red.png`
 
-> Strategy game king eliminated, deep resonant impact followed by a descending glass-energy tone and brief dramatic silence, prestigious game show feeling, nonviolent, no voice, 1.4 seconds.
+> 낮고 단단한 삼각기둥 형태의 세모기사. 제공된 화면의 ‘삼각형 안의 눈’은 그대로 사용하지 않고, 정면 삼각면 중앙에 원형 광학 렌즈 하나를 넣어 재해석한다. 삼각기둥의 한쪽 경사면 전체에는 민트색 대각 거울판이 장착되어 반사 가능한 방향이 즉시 보인다. 나머지 면은 무광 금속. 공격적인 눈이나 생물 표정이 아니라 정밀한 광학 센서처럼 표현. 고급 3D 보드게임 말.
 
-### `victory.mp3` · 3초
+### 스플리터 · `piece_splitter_blue.png`, `piece_splitter_red.png`
 
-> Short cerebral strategy victory stinger, four ascending brass-synth and crystalline notes, amber gold triumph, premium television game show mood, energetic but not childish, no voice, clean ending, 3 seconds.
+> 사각 프레임 안에 투명한 마름모 프리즘 코어가 들어 있는 스플리터. 제공된 화면의 전체를 가로지르는 대각 청록선에서 착안하되, 단순 선 대신 몸체를 완전히 관통하는 두꺼운 민트색 유리 채널로 재설계한다. 들어온 레이저가 직진으로 통과하면서 직각 방향으로 한 줄 더 갈라지는 기능이 시각적으로 느껴지도록 코어 안에 두 방향의 약한 발광 흔적. 일반 거울 기사와 구분되도록 몸체 대부분이 투명하고 중앙 교차 코어가 보임. 고급 3D 보드게임 말.
 
-### `result-sent.mp3` · 0.8초
+### 왕 · `piece_king_blue.png`, `piece_king_red.png`
 
-> Successful match result transmission, warm digital confirmation pulse followed by two bright ascending notes, reliable and satisfying, no voice, 0.8 seconds.
+> 짧고 넓은 육각형 받침 위에 추상적인 왕관 코어가 떠 있는 왕 말. 제공된 화면의 왕관 상징을 참고하되 둥근 구슬 장식과 동일한 실루엣은 사용하지 않는다. 다섯 개의 낮은 기하학 봉우리와 중앙의 밝은 에너지 보석, 사방 어느 쪽에서도 공격받을 수 있다는 의미로 보호 거울은 없음. 가장 중요하지만 지나치게 크지 않고 다른 말과 같은 게임판 비율. 고급 3D 보드게임 말.
 
-## BGM
+### 네모기사 · `piece_square_blue.png`, `piece_square_red.png`
 
-### `lobby-bgm.mp3` · 메인 및 대기 화면 · 2분 이상, 루프
+> 묵직한 사각기둥 형태의 네모기사. 제공된 화면의 대각 거울면을 참고하되, 한쪽 면에만 두꺼운 민트색 사선 거울판을 끼워 넣은 장갑 블록으로 재설계한다. 스플리터와 달리 몸체는 불투명한 무광 금속이며 레이저가 관통하지 않는다. 거울이 없는 세 면은 단단한 색상 금속판이고, 거울면의 방향이 작은 화면에서도 분명하도록 밝은 아이보리 테두리. 고급 3D 보드게임 말.
 
-> Instrumental background music for an elementary classroom strategy game lobby. Premium cerebral game show atmosphere, 104 BPM, deep navy synth pads, restrained electronic pulse, soft ticking percussion, amber-gold bell accents, subtle sense of anticipation, sophisticated and child-friendly, no vocals, no spoken words, no dramatic climax, seamless loop, clean mix that stays behind classroom voices.
+### 레이저 · `piece_laser_blue.png`, `piece_laser_red.png`
 
-### `game-bgm.mp3` · 경기 중 · 3분 이상, 루프
+> 이동하지 않는 짧은 직사각형 레이저 타워. 제공된 화면의 상단 수평 청록선을 참고하되, 몸체 위쪽에 넓은 수평 발사 슬릿과 작은 회전식 광학 헤드를 결합한 새로운 형태. 어느 방향으로 발사하는지 즉시 알 수 있도록 발사구가 한쪽 면으로 돌출되고 민트색 빛이 모인다. 무기나 대포처럼 보이지 않고 실험실 광학 장치와 고급 보드게임 말의 중간 형태. 고급 3D 보드게임 말.
 
-> Instrumental tactical strategy game background music, 112 BPM, precise electronic pulse, low restrained synth bass, glassy arpeggios suggesting laser reflections, subtle tension that slowly evolves without a large climax, premium brain survival show mood, exciting but never frightening, child-friendly, no vocals, no spoken words, seamless loop, enough space for sound effects and classroom conversation.
+---
 
-### `result-bgm.mp3` · 결과 전광판 · 90초 이상, 루프
+## 6. 프로젝트에 기본 포함된 효과음
 
-> Instrumental results scoreboard music for a premium classroom strategy tournament, 96 BPM, confident amber-gold synth brass, elegant electronic rhythm, celebratory but restrained, intelligent competition atmosphere, child-friendly, no vocals, no spoken words, seamless loop.
+다음 14개 WAV 파일은 프로젝트의 `public/audio`에 직접 제작하여 넣었으므로 별도 다운로드가 필요 없다.
 
-## 음원 적용 권장값
+| 파일 | 사용 위치 |
+|---|---|
+| `ui-click.wav` | 모든 버튼 클릭 |
+| `ui-confirm.wav` | 운영 시작·중요 확인 |
+| `ui-error.wav` | 잘못된 이동·연결 오류 |
+| `piece-select.wav` | 말 선택 |
+| `piece-move.wav` | 말 한 칸 이동 |
+| `piece-rotate.wav` | 말 90도 회전 |
+| `game-start.wav` | 경기 시작 |
+| `laser-fire.wav` | 레이저 자동 발사 |
+| `laser-reflect.wav` | 거울 반사 |
+| `splitter.wav` | 레이저 분리 |
+| `piece-destroy.wav` | 일반 말 제거 |
+| `king-hit.wav` | 왕 피격 |
+| `victory.wav` | 승리 연출 |
+| `result-sent.wav` | 결과 전광판 전송 완료 |
 
-- 로비 BGM: 기본 볼륨 22%
-- 게임 BGM: 기본 볼륨 18%
-- 결과 BGM: 기본 볼륨 24%
-- 효과음: 기본 볼륨 65%
-- `laser-fire` 중 BGM을 약 25%만큼 순간적으로 낮추고 1초 안에 복귀
-- 모바일 브라우저 자동재생 제한을 고려해 첫 번째 사용자 터치 이후 재생 시작
+모든 소리는 코드와 연결되어 있다. `scripts/generate-sfx.mjs`를 실행하면 동일한 파일을 다시 생성할 수 있다.
+
+---
+
+## 7. 선택적으로 외부 음원으로 교체할 효과음
+
+현재 자체 제작 음원만으로도 모든 기능이 작동한다. 더 사실적이고 고급스러운 음향을 원할 때 아래 네 종류만 외부 음원으로 교체하면 효과가 크다.
+
+| 교체 대상 | 추천 검색어 | 권장 길이 |
+|---|---|---:|
+| `laser-fire.wav` | `sci fi energy beam`, `laser charge fire` | 0.7~1.2초 |
+| `splitter.wav` | `crystal prism split`, `magic glass shimmer` | 0.3~0.7초 |
+| `king-hit.wav` | `game over energy impact`, `deep crystal break` | 1~2초 |
+| `victory.wav` | `strategy game victory stinger`, `short futuristic win` | 2~4초 |
+
+### 무료 다운로드 사이트
+
+- Pixabay Sound Effects: https://pixabay.com/sound-effects/  
+  무료 사용·수정이 가능하고 일반적으로 저작자 표시가 필수는 아니다. 원본 파일 자체를 그대로 재배포하는 것은 금지된다.
+- Mixkit Sound Effects: https://mixkit.co/free-sound-effects/  
+  Sound Effects Free License가 별도로 제공된다. 다운로드한 개별 항목의 라이선스를 한 번 더 확인한다.
+- Freesound: https://freesound.org/  
+  음원마다 CC0·CC BY·CC BY-NC가 다르다. 이 프로젝트에는 가급적 **CC0**만 사용한다. CC BY는 저작자 표시가 필요하고 CC BY-NC는 상업적 사용이 제한된다.
+- ZapSplat: https://www.zapsplat.com/  
+  무료 계정은 보통 MP3만 제공되고 출처 표시가 필요하므로 우선순위는 낮다. CC0로 표시된 파일만 고르면 관리가 쉽다.
+
+외부 파일로 교체할 때는 파일명을 위 표와 동일하게 맞추면 코드를 수정할 필요가 없다.
+
+---
+
+## 8. 게임 운영 페이지 전용 BGM
+
+### 파일명
+
+`public/audio/host-bgm.mp3`
+
+학생 경기 화면에서는 재생하지 않고 교사 운영 페이지에서만 재생한다. 운영 시작 버튼을 누르면 재생되며 운영 종료 시 멈춘다. 운영 화면에 재생·일시정지·볼륨 조절 기능이 포함되어 있다.
+
+### Suno 등 음악 생성 서비스용 프롬프트
+
+> Seamlessly looping instrumental background music for a classroom laser strategy game control room. Modern video game management-screen music, not cinematic film score. 116 BPM, clean electronic drum groove, soft synth bass, bright digital pluck arpeggios, subtle marimba-like notes, small glassy accents suggesting laser reflections, light tactical tension, playful intelligence, premium arcade strategy atmosphere, energetic enough to keep the classroom game moving but calm enough for a teacher to speak over it. Clear repeating main motif, steady intensity, no dramatic build, no trailer percussion, no huge orchestra, no brass fanfare, no choir, no vocals, no spoken words, no dark horror mood, seamless loop, 2 to 3 minutes.
+
+### 짧은 스타일 입력란
+
+> Modern strategy game OST, electronic groove, digital plucks, light arcade tactics, 116 BPM, seamless loop, instrumental, no vocals, not cinematic
+
+### 제외 스타일
+
+> cinematic trailer, epic orchestra, film score, dramatic strings, huge brass, choir, dubstep drop, rock guitar, horror, military march, vocals
+
+### 권장 설정
+
+- 길이: 2~3분
+- 템포: 112~118 BPM
+- 기본 음량: 20~24%
+- 시작과 끝의 화음·리듬이 자연스럽게 이어지는 루프 구조
+- 교실 안내 방송과 겹치지 않도록 중음역 리드 악기를 너무 크게 사용하지 않음
