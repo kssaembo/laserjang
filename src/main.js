@@ -4,7 +4,8 @@ import QRCode from 'qrcode';
 
 const app = document.querySelector('#app');
 const ROWS = 8;
-const COLS = 10;
+const COLS = 8;
+const BOARD_VERSION = '8x8-reference-v2';
 const DIRS = [
   { dr: -1, dc: 0, name: 'N' },
   { dr: 0, dc: 1, name: 'E' },
@@ -173,7 +174,8 @@ function renderHostDynamic() {
 }
 
 function broadcastRoster() {
-  const data = { type: 'ROSTER', players: host.players, sessionTitle: host.title, ended: host.ended };
+  const stats = Object.fromEntries(standings().map(p => [p.id, { wins: p.wins, losses: p.losses, points: p.points }]));
+  const data = { type: 'ROSTER', players: host.players, stats, sessionTitle: host.title, ended: host.ended };
   hostConnections.forEach(conn => { if (conn.open) conn.send(data); });
 }
 
@@ -186,7 +188,8 @@ function startHostPeer() {
   peer.on('connection', conn => {
     conn.on('open', () => {
       hostConnections.set(conn.peer, conn);
-      conn.send({ type: 'WELCOME', players: host.players, sessionTitle: host.title, ended: host.ended });
+      const stats = Object.fromEntries(standings().map(p => [p.id, { wins: p.wins, losses: p.losses, points: p.points }]));
+      conn.send({ type: 'WELCOME', players: host.players, stats, sessionTitle: host.title, ended: host.ended });
     });
     conn.on('data', data => handleHostMessage(conn, data));
     conn.on('close', () => hostConnections.delete(conn.peer));
@@ -200,7 +203,8 @@ function handleHostMessage(conn, data) {
   if (data.type === 'REGISTER_STATION') {
     host.stations[data.stationId] = { stationId: data.stationId, number: data.number, status: 'ready', lastSeen: now() };
     conn.metadata = { stationId: data.stationId };
-    conn.send({ type: 'ROSTER', players: host.players, sessionTitle: host.title, ended: host.ended });
+    const stats = Object.fromEntries(standings().map(p => [p.id, { wins: p.wins, losses: p.losses, points: p.points }]));
+    conn.send({ type: 'ROSTER', players: host.players, stats, sessionTitle: host.title, ended: host.ended });
   }
   if (data.type === 'HEARTBEAT') {
     const station = host.stations[data.stationId];
@@ -234,7 +238,7 @@ function handleHostMessage(conn, data) {
     host.matches.push(result);
     delete host.active[data.matchId];
     Object.assign(host.stations[data.stationId], { status: 'ready', activeMatchId: null, lastSeen: now() });
-    saveHost(); renderHostDynamic();
+    saveHost(); renderHostDynamic(); broadcastRoster();
     conn.send({ type: 'RESULT_ACCEPTED', matchId: data.matchId });
   }
   if (data.type === 'MATCH_ABORT') {
@@ -249,7 +253,12 @@ function handleHostMessage(conn, data) {
 function stationState() {
   const key = `laser-station-${roomCode() || 'practice'}`;
   const cached = localStorage.getItem(key);
-  return cached ? JSON.parse(cached) : { stationId: uid('station'), number: '', status: 'setup', players: [], match: null, game: null };
+  if (cached) {
+    const parsed = JSON.parse(cached);
+    if (parsed.boardVersion !== BOARD_VERSION) { parsed.game = null; parsed.match = null; parsed.status = parsed.number ? 'ready' : 'setup'; }
+    return { ...parsed, boardVersion: BOARD_VERSION, stats: parsed.stats || {} };
+  }
+  return { stationId: uid('station'), number: '', status: 'setup', players: [], stats: {}, match: null, game: null, boardVersion: BOARD_VERSION };
 }
 let station = null;
 function saveStation() { if (station) localStorage.setItem(`laser-station-${roomCode() || 'practice'}`, JSON.stringify(station)); }
@@ -259,6 +268,7 @@ function stationView(practice = false) {
   if (practice) {
     station.number = '연습'; station.status = station.game ? 'playing' : 'ready';
     station.players = [{ id: 'practice-blue', name: '청색 플레이어' }, { id: 'practice-red', name: '적색 플레이어' }];
+    station.stats = { 'practice-blue': { wins: 0, losses: 0, points: 0 }, 'practice-red': { wins: 0, losses: 0, points: 0 } };
     if (!station.game) startLocalGame({ matchId: uid('practice'), stationNumber: '연습', blueId: 'practice-blue', blueName: '청색 플레이어', redId: 'practice-red', redName: '적색 플레이어', startedAt: now() }, true);
     else gameView(true);
     return;
@@ -313,6 +323,7 @@ function sendHeartbeat() {
 function handleStationMessage(data) {
   if (data.type === 'WELCOME' || data.type === 'ROSTER') {
     station.players = data.players || [];
+    station.stats = data.stats || station.stats || {};
     saveStation();
     if (!station.game) stationLobbyView();
   }
@@ -328,19 +339,22 @@ function handleStationMessage(data) {
 
 function initialPieces() {
   const P = (id, owner, type, r, c, dir) => ({ id, owner, type, r, c, dir, alive: true });
+  // 사용자 제공 8×8 기준 이미지의 좌표와 방향을 그대로 옮긴 배치.
+  // 적색은 이미지의 밝은색 진영, 청색은 이미지의 어두운색 진영에 대응한다.
   return [
-    P('b-l','blue','laser',7,0,1), P('b-k','blue','king',7,4,0), P('b-sp','blue','splitter',6,4,0),
-    P('b-t1','blue','triangle',7,2,0), P('b-t2','blue','triangle',6,2,1), P('b-t3','blue','triangle',6,6,3), P('b-t4','blue','triangle',5,3,0), P('b-t5','blue','triangle',5,7,3),
-    P('b-s1','blue','square',7,6,1), P('b-s2','blue','square',6,8,2),
-    P('r-l','red','laser',0,9,3), P('r-k','red','king',0,5,2), P('r-sp','red','splitter',1,5,2),
-    P('r-t1','red','triangle',0,7,2), P('r-t2','red','triangle',1,7,3), P('r-t3','red','triangle',1,3,1), P('r-t4','red','triangle',2,6,2), P('r-t5','red','triangle',2,2,1),
-    P('r-s1','red','square',0,3,3), P('r-s2','red','square',1,1,0)
+    P('r-sp','red','splitter',0,0,1), P('r-t1','red','triangle',0,3,0), P('r-l','red','laser',0,7,3),
+    P('r-s1','red','square',2,7,2), P('r-t2','red','triangle',3,4,2), P('r-k','red','king',3,7,3),
+    P('r-t3','red','triangle',4,4,1), P('r-s2','red','square',4,7,2), P('r-t4','red','triangle',5,7,1), P('r-t5','red','triangle',6,0,0),
+    P('b-t1','blue','triangle',1,7,2), P('b-t2','blue','triangle',2,0,3), P('b-s1','blue','square',3,0,0),
+    P('b-t3','blue','triangle',3,3,3), P('b-k','blue','king',4,0,1), P('b-t4','blue','triangle',4,3,0),
+    P('b-s2','blue','square',5,0,0), P('b-l','blue','laser',7,0,1), P('b-t5','blue','triangle',7,4,2), P('b-sp','blue','splitter',7,7,3)
   ];
 }
 
 function startLocalGame(match, practice = false) {
   station.match = match;
   station.status = 'playing';
+  station.boardVersion = BOARD_VERSION;
   station.game = { pieces: initialPieces(), turn: 'blue', turnCount: 0, selectedId: null, startedAt: match.startedAt || now(), beams: [], processLog: [], message: '청색 플레이어의 차례입니다.', over: false, practice };
   saveStation(); sendHeartbeat(); sfx.play('start', .8); gameView(practice);
 }
@@ -357,6 +371,21 @@ function playerHud(owner, name) {
     <button class="rotate-key rotate-right-key" data-action="rotate-right" data-side="${owner}" ${active ? '' : 'disabled'} aria-label="${sideName} 오른쪽 회전"><span>오른쪽 회전</span><b>↷</b></button>
   </header>`;
 }
+
+function playerInfoPanel(owner) {
+  const g = station.game;
+  const playerId = owner === 'blue' ? station.match.blueId : station.match.redId;
+  const stats = station.stats?.[playerId] || { wins: 0, losses: 0, points: 0 };
+  const deadPieces = g.pieces.filter(piece => piece.owner === owner && !piece.alive);
+  const recentLogs = (g.processLog || []).slice(-5).reverse();
+  return `<aside class="player-info-panel ${owner}-info-panel">
+    <section class="info-block timer-block"><span>게임 시간</span><strong class="game-clock">${fmtTime(now() - g.startedAt)}</strong></section>
+    <section class="info-block record-block"><span>현재 내 게임 전적</span><div><b>${stats.wins || 0}승</b><b>${stats.losses || 0}패</b><b>${stats.points || 0}점</b></div></section>
+    <section class="info-block progress-block"><span>현재 게임 전개 현황</span><div class="turn-log">${recentLogs.length ? recentLogs.map(entry => `<article><b>${entry.turn}턴</b><p>${safe(entry.action)}</p>${entry.laserResult ? `<small>${safe(entry.laserResult)}</small>` : ''}</article>`).join('') : '<p class="info-empty">첫 행동을 기다리고 있습니다.</p>'}</div></section>
+    <section class="info-block captured-block"><span>제거된 내 말</span><div class="captured-pieces">${deadPieces.length ? deadPieces.map(piece => `<img src="${pieceAsset(piece)}" alt="제거된 ${PIECE_NAMES[piece.type]}" title="${PIECE_NAMES[piece.type]}">`).join('') : '<p class="info-empty">아직 제거된 말이 없습니다.</p>'}</div></section>
+  </aside>`;
+}
+
 function gameView(practice = station.game?.practice) {
   const g = station.game;
   if (!g) return stationLobbyView();
@@ -365,15 +394,18 @@ function gameView(practice = station.game?.practice) {
   const blue = station.match.blueName, red = station.match.redName;
   app.innerHTML = `<main class="game-screen">
     ${playerHud('red', red)}
-    <section class="board-stage"><div class="game-info"><span>${safe(station.number)}번 경기장</span><b id="game-clock">${fmtTime(now() - g.startedAt)}</b><span><i id="turn-count">${g.turnCount}</i>턴</span></div>
-      <div class="board-wrap"><div id="board" class="board"></div><svg id="laser-layer" viewBox="0 0 ${COLS} ${ROWS}" preserveAspectRatio="none"></svg></div>
-      <div class="game-message" id="game-message">${safe(g.message)}</div>
+    <section class="game-body">
+      ${playerInfoPanel('red')}
+      <section class="board-stage">
+        <div class="board-wrap">${g.practice ? '<div class="practice-badge practice-blue">연습 경기</div><div class="practice-badge practice-red">연습 경기</div>' : ''}<div id="board" class="board"></div><svg id="laser-layer" viewBox="0 0 ${COLS} ${ROWS}" preserveAspectRatio="none"></svg></div>
+      </section>
+      ${playerInfoPanel('blue')}
     </section>
     ${playerHud('blue', blue)}
     ${g.over ? resultOverlay() : ''}
   </main>`;
   renderBoard();
-  const tick = setInterval(() => { const clock = document.querySelector('#game-clock'); if (!clock || station.game !== g) return clearInterval(tick); clock.textContent = fmtTime(now() - g.startedAt); }, 1000);
+  const tick = setInterval(() => { const clocks = document.querySelectorAll('.game-clock'); if (!clocks.length || station.game !== g) return clearInterval(tick); clocks.forEach(clock => { clock.textContent = fmtTime(now() - g.startedAt); }); }, 1000);
 }
 
 function renderBoard() {
@@ -392,7 +424,7 @@ function handleCell(r, c) {
   const selected = g.pieces.find(x => x.id === g.selectedId);
   if (!selected) {
     if (!p || p.owner !== g.turn) return toast('현재 차례의 말을 선택하세요.', 'error');
-    g.selectedId = p.id; g.message = `${PIECE_NAMES[p.type]} 선택 · 이동할 칸을 누르거나 회전하세요.`; sfx.play('select', .65); saveStation(); renderBoard(); document.querySelector('#game-message').textContent = g.message; return;
+    g.selectedId = p.id; g.message = `${PIECE_NAMES[p.type]} 선택 · 이동할 칸을 누르거나 회전하세요.`; sfx.play('select', .65); saveStation(); renderBoard(); return;
   }
   if (p?.owner === g.turn) { g.selectedId = p.id; renderBoard(); return; }
   if (selected.type === 'laser') return toast('레이저는 이동할 수 없습니다. 방향만 바꿀 수 있습니다.', 'error');

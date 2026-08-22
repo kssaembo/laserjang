@@ -40,3 +40,23 @@ body[data-screen="home"] .victory-emblem{display:none!important}
 @media(max-width:760px){.topbar-end-btn{font-size:11px;padding:9px 11px}.topbar-actions{gap:6px}.host-layout{display:block}.panel{margin-bottom:12px}.export-panel{display:block}.export-panel .button-row{margin-top:16px}.game-screen{grid-template-rows:82px 1fr 82px}.game-hud{grid-template-columns:1fr auto 1fr;gap:8px;padding:7px 10px}.rotate-key{height:56px;min-width:0;font-size:0;gap:3px}.rotate-key b{font-size:29px}.rotate-key span{font-size:11px}.hud-player{min-width:105px}.hud-player strong{font-size:13px}.board-wrap,.game-info{width:min(70vh,94vw)}}
 .rotate-key span{font-size:17px;color:#eef6ff;letter-spacing:-.02em}
 @media(max-width:760px){.rotate-key span{font-size:11px}}
+
+/* 8×8 square arena with mirrored player information panels */
+.game-screen{grid-template-rows:92px minmax(0,1fr) 92px}
+.game-body{min-height:0;display:grid;grid-template-columns:minmax(180px,240px) min(56vh,52vw) minmax(180px,240px);grid-template-rows:min(56vh,52vw);justify-content:center;align-content:center;align-items:stretch;gap:14px;padding:8px 14px}
+.board-stage{width:100%;height:100%;min-height:0;padding:0;display:grid;place-items:center}
+.board-wrap{width:100%;height:100%;max-width:none;aspect-ratio:1/1;border-width:7px}
+.board{grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);width:100%;height:100%;aspect-ratio:1/1}
+.cell{width:100%;height:100%;aspect-ratio:1/1}
+.player-info-panel{height:100%;min-height:0;display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #34465e;border-radius:13px;background:linear-gradient(145deg,#0c1929f2,#06101df5);box-shadow:0 14px 34px #0008;overflow:hidden}
+.red-info-panel{transform:rotate(180deg);border-color:#6e3440}
+.blue-info-panel{border-color:#285f75}
+.info-block{padding:9px 10px;border:1px solid #26384e;border-radius:9px;background:#07121fbd}
+.info-block>span{display:block;margin-bottom:6px;color:#8395aa;font-size:9px;font-weight:900;letter-spacing:.06em}
+.timer-block{display:flex;align-items:center;justify-content:space-between}.timer-block>span{margin:0}.timer-block strong{color:#ffe09a;font-size:24px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.06em}
+.record-block>div{display:flex;gap:6px}.record-block b{flex:1;padding:6px 3px;border-radius:6px;background:#132238;color:#e9f0f8;text-align:center;font-size:11px}.record-block b:last-child{color:#e7bd6d}
+.progress-block{min-height:0;flex:1;display:flex;flex-direction:column}.turn-log{min-height:0;overflow:auto;padding-right:3px}.turn-log article{padding:6px 0;border-bottom:1px solid #1c2c40}.turn-log article:last-child{border-bottom:0}.turn-log b{color:#e2b968;font-size:9px}.turn-log p{margin:2px 0;color:#d2dce7;font-size:9px;line-height:1.35}.turn-log small{display:block;color:#6f879f;font-size:8px;line-height:1.35}
+.captured-block{min-height:76px}.captured-pieces{display:flex;align-items:center;gap:3px;min-height:38px;overflow-x:auto}.captured-pieces img{width:38px;height:38px;object-fit:contain;filter:grayscale(.25) drop-shadow(0 3px 3px #0009)}.info-empty{margin:5px 0;color:#5f7187!important;font-size:9px!important}
+.practice-badge{position:absolute;z-index:12;padding:8px 13px;border:1px solid #d6ae65;border-radius:8px;background:#07111fe8;color:#ffe4a5;font-size:14px;font-weight:900;letter-spacing:.04em;box-shadow:0 5px 18px #000b,0 0 18px #dba44738;pointer-events:none}.practice-blue{top:10px;left:10px}.practice-red{right:10px;bottom:10px;transform:rotate(180deg)}
+@media(max-width:1050px){.game-body{grid-template-columns:minmax(150px,190px) min(54vh,50vw) minmax(150px,190px);grid-template-rows:min(54vh,50vw);gap:9px;padding-left:8px;padding-right:8px}.player-info-panel{padding:8px;gap:5px}.info-block{padding:7px}.timer-block strong{font-size:19px}.captured-pieces img{width:31px;height:31px}.captured-block{min-height:62px}}
+@media(max-width:760px) and (orientation:landscape){.game-screen{grid-template-rows:76px minmax(0,1fr) 76px}.game-body{grid-template-columns:132px min(52vh,48vw) 132px;grid-template-rows:min(52vh,48vw);gap:6px;padding:5px}.player-info-panel{padding:6px}.info-block{padding:5px}.info-block>span{font-size:7px;margin-bottom:3px}.timer-block strong{font-size:16px}.record-block b{font-size:8px;padding:4px 2px}.turn-log p{font-size:7px}.turn-log small,.turn-log b,.info-empty{font-size:7px!important}.captured-block{min-height:48px}.captured-pieces{min-height:26px}.captured-pieces img{width:26px;height:26px}.practice-badge{padding:5px 8px;font-size:10px}}
