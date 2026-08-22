@@ -359,7 +359,7 @@ function startLocalGame(match, practice = false) {
   saveStation(); sendHeartbeat(); sfx.play('start', .8); gameView(practice);
 }
 
-function pieceAsset(p) { return `/images/pieces/${p.owner}/piece_${p.type}_${p.owner}.png`; }
+function pieceAsset(p) { return `/images/pieces/${p.owner}/piece_${p.type}_${p.owner}.png?v=20260822-2`; }
 function pieceAt(r, c) { return station.game.pieces.find(p => p.alive && p.r === r && p.c === c); }
 function playerHud(owner, name) {
   const g = station.game;
@@ -383,6 +383,7 @@ function playerInfoPanel(owner) {
     <section class="info-block record-block"><span>현재 내 게임 전적</span><div><b>${stats.wins || 0}승</b><b>${stats.losses || 0}패</b><b>${stats.points || 0}점</b></div></section>
     <section class="info-block progress-block"><span>현재 게임 전개 현황</span><div class="turn-log">${recentLogs.length ? recentLogs.map(entry => `<article><b>${entry.turn}턴</b><p>${safe(entry.action)}</p>${entry.laserResult ? `<small>${safe(entry.laserResult)}</small>` : ''}</article>`).join('') : '<p class="info-empty">첫 행동을 기다리고 있습니다.</p>'}</div></section>
     <section class="info-block captured-block"><span>제거된 내 말</span><div class="captured-pieces">${deadPieces.length ? deadPieces.map(piece => `<img src="${pieceAsset(piece)}" alt="제거된 ${PIECE_NAMES[piece.type]}" title="${PIECE_NAMES[piece.type]}">`).join('') : '<p class="info-empty">아직 제거된 말이 없습니다.</p>'}</div></section>
+    ${g.practice ? '<button class="practice-home-button" data-action="home">⌂ 메인화면</button>' : ''}
   </aside>`;
 }
 
@@ -397,7 +398,9 @@ function gameView(practice = station.game?.practice) {
     <section class="game-body">
       ${playerInfoPanel('red')}
       <section class="board-stage">
-        <div class="board-wrap">${g.practice ? '<div class="practice-badge practice-blue">연습 경기</div><div class="practice-badge practice-red">연습 경기</div>' : ''}<div id="board" class="board"></div><svg id="laser-layer" viewBox="0 0 ${COLS} ${ROWS}" preserveAspectRatio="none"></svg></div>
+        <div class="arena-caption practice-blue-caption">${g.practice ? '연습 경기' : ''}</div>
+        <div class="board-wrap"><div id="board" class="board"></div><svg id="laser-layer" viewBox="0 0 ${COLS} ${ROWS}" preserveAspectRatio="none"></svg></div>
+        <div class="arena-caption practice-red-caption">${g.practice ? '연습 경기' : ''}</div>
       </section>
       ${playerInfoPanel('blue')}
     </section>
