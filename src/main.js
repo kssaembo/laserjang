@@ -1,11 +1,12 @@
 import './style.css';
 import Peer from 'peerjs';
 import QRCode from 'qrcode';
+import { opticalInteraction } from './optics.js';
 
 const app = document.querySelector('#app');
 const ROWS = 8;
 const COLS = 8;
-const BOARD_VERSION = '8x8-reference-v2';
+const BOARD_VERSION = '8x8-reference-v3';
 const DIRS = [
   { dr: -1, dc: 0, name: 'N' },
   { dr: 0, dc: 1, name: 'E' },
@@ -112,15 +113,15 @@ const GUIDE_SLIDES = [
     kicker: 'PIECE & RULES', title: '다섯 종류의 말을 이해하세요',
     body: `<div class="guide-piece-grid">
       <article><img src="/images/pieces/blue/piece_laser_blue.png?v=20260822-2" alt="레이저"><div><b>레이저</b><p>이동할 수 없고 턴 종료 후 자동 발사됩니다. 피격되어도 제거되지 않습니다.</p></div></article>
-      <article><img src="/images/pieces/blue/piece_splitter_blue.png?v=20260822-2" alt="스플리터"><div><b>스플리터</b><p>빛을 직진으로 통과시키면서 거울 방향으로 반사해 두 갈래로 나눕니다.</p></div></article>
+      <article><img src="/images/pieces/blue/piece_splitter_blue.png?v=20260822-2" alt="스플리터"><div><b>스플리터</b><p>빛은 그대로 통과하며, 대각선 면을 따라 90도 반사된 빛이 한 갈래 더 생깁니다.</p></div></article>
       <article><img src="/images/pieces/blue/piece_king_blue.png?v=20260822-2" alt="왕"><div><b>왕</b><p>어느 면이든 레이저에 맞으면 즉시 제거되고 게임이 끝납니다.</p></div></article>
       <article><img src="/images/pieces/blue/piece_triangle_blue.png?v=20260822-2" alt="세모기사"><div><b>세모기사</b><p>거울면은 빛을 반사하며, 거울이 없는 면에 맞으면 제거됩니다.</p></div></article>
-      <article><img src="/images/pieces/blue/piece_square_blue.png?v=20260822-2" alt="네모기사"><div><b>네모기사</b><p>거울면은 빛을 반사하며, 거울이 없는 면에 맞으면 제거됩니다.</p></div></article>
+      <article><img src="/images/pieces/blue/piece_square_blue.png?v=20260822-2" alt="네모기사"><div><b>네모기사</b><p>색상 거울면은 빛을 180도 되돌리며, 나머지 세 면에 맞으면 제거됩니다.</p></div></article>
     </div><p class="guide-note">한 턴에는 내 말 하나를 인접한 8방향으로 한 칸 이동하거나, 내 말 하나를 90도 회전합니다. 레이저는 판 밖을 향하도록 돌릴 수 없습니다.</p>`
   },
   {
     kicker: 'TEACHER SETUP', title: '교사 운영 페이지 실행 순서',
-    body: `<ol class="guide-steps"><li><b>플레이어 등록</b><span>게임 이름과 학생 이름을 줄바꿈으로 입력합니다.</span></li><li><b>게임 운영 시작</b><span>버튼을 눌러 4자리 학급 코드와 학생 접속 QR을 활성화합니다.</span></li><li><b>학생 경기장 접속</b><span>태블릿에서 QR을 스캔하거나 메인 화면의 ‘학생 경기장 접속’에서 4자리 코드를 입력합니다.</span></li><li><b>경기장 번호 지정</b><span>고정된 태블릿마다 서로 다른 경기장 번호를 선택합니다.</span></li><li><b>선수 선택과 결과 확인</b><span>학생 두 명이 이름 카드를 선택해 대국하고, 종료 결과는 순위와 최근 경기에 반영됩니다.</span></li><li><b>기록 복사 후 종료</b><span>운영 종료 뒤 경기 결과·과정을 복사해 한셀 또는 엑셀에 붙여넣습니다.</span></li></ol>`
+    body: `<ol class="guide-steps"><li><b>이름 입력</b><span>게임 이름과 학생 이름을 줄바꿈으로 입력합니다.</span></li><li><b>플레이어 등록</b><span>버튼을 눌러 명단을 확정하고 4자리 학급 코드와 학생 접속 QR을 활성화합니다.</span></li><li><b>학생 경기장 접속</b><span>태블릿에서 QR을 스캔하거나 메인 화면의 ‘학생 경기장 접속’에서 4자리 코드를 입력합니다.</span></li><li><b>경기장 번호 지정</b><span>고정된 태블릿마다 서로 다른 경기장 번호를 선택합니다.</span></li><li><b>선수 선택과 결과 확인</b><span>학생 두 명이 이름 카드를 선택해 대국하고, 종료 결과는 순위와 최근 경기에 반영됩니다.</span></li><li><b>게임 종료·결과 공개</b><span>완료된 경기만 반영한 최종 순위를 공개하고 결과표를 복사합니다.</span></li></ol>`
   },
   {
     kicker: 'MORE INFORMATION', title: '영상으로 규칙을 확인할 수 있어요',
@@ -163,19 +164,20 @@ function hostView() {
   setScreen('host');
   host = hostState();
   saveHost();
-  const endAction = host.started && !host.ended ? '<button class="topbar-end-btn" data-action="open-end-session-modal">게임 종료(게임 초기화)</button>' : '';
-  app.innerHTML = `${header('레이저 장기 관제실', '모든 데이터는 이 탭에만 임시 저장됩니다.', endAction)}
+  const confirmedRoster = host.players.length ? `<section class="confirmed-roster"><div><b>확정된 플레이어</b><span>${host.players.length}명</span></div><ul>${host.players.map((player, index) => `<li><i>${index + 1}</i>${safe(player.name)}</li>`).join('')}</ul></section>` : '<section class="confirmed-roster empty-roster"><p>플레이어 등록을 완료하면 확정된 명단이 여기에 표시됩니다.</p></section>';
+  app.innerHTML = `${header('레이저 장기 관제실', '모든 데이터는 이 탭에만 임시 저장됩니다.')}
   <main class="host-layout shell wide">
     <section class="panel setup-panel">
-      <div class="section-head"><div><p class="kicker">SESSION CONTROL</p><h2>게임 운영</h2></div><span class="live-pill ${host.started && !host.ended ? 'on' : ''}">${host.ended ? '종료됨' : host.started ? '운영 중' : '준비 중'}</span></div>
+      <div class="section-head"><div><p class="kicker">PLAYER REGISTRATION</p><h2>게임 운영</h2></div><span class="live-pill ${host.started && !host.ended ? 'on' : ''}">${host.ended ? '결과 공개' : host.started ? '명단 확정' : '등록 전'}</span></div>
       <label>게임 이름<input id="room-title" value="${safe(host.title)}" ${host.started ? 'disabled' : ''}></label>
       <label>플레이어 등록 <span class="hint">줄바꿈 또는 쉼표로 구분</span>
         <textarea id="roster" rows="10" ${host.started ? 'disabled' : ''} placeholder="홍길동&#10;임꺽정&#10;심청이">${safe(host.players.map(p => p.name).join('\n'))}</textarea>
       </label>
       <div class="button-row">
-        ${!host.started ? '<button class="primary" data-action="start-session">게임 운영 시작</button>' : ''}
+        ${!host.started ? '<button class="primary" data-action="confirm-roster">플레이어 등록</button>' : '<button class="secondary" disabled>플레이어 등록 완료</button>'}
         ${host.ended ? '<button class="secondary" data-action="new-session">새 게임방</button>' : ''}
       </div>
+      ${confirmedRoster}
       <p class="privacy-note">경기 결과는 이 운영 탭에만 임시로 보관됩니다.</p>
     </section>
     <section class="panel connection-panel">
@@ -186,7 +188,7 @@ function hostView() {
     <section class="panel stations-panel"><div class="section-head"><div><p class="kicker">LIVE ARENAS</p><h2>경기장 현황</h2></div><strong>${Object.keys(host.stations).length}대 연결</strong></div><div id="station-grid"></div></section>
     <section class="panel scoreboard-panel"><div class="section-head"><div><p class="kicker">LIVE SCOREBOARD</p><h2>실시간 순위</h2></div><button class="secondary small" data-action="fullscreen-board">전광판 크게 보기</button></div><div id="ranking"></div></section>
     <section class="panel results-panel"><div class="section-head"><div><p class="kicker">MATCH FEED</p><h2>최근 경기 결과</h2></div><span>${host.matches.length}경기 완료</span></div><div id="match-feed"></div></section>
-    <section class="panel export-panel"><div class="export-copy"><h2>경기 결과 및 과정</h2><p>게임 종료 후 복사하기 버튼을 클릭하고 한셀/엑셀에 붙여넣기 하시면 경기 결과와 과정을 확인할 수 있습니다.</p><p class="volatile-warning">게임을 종료하면 모든 게임 결과는 초기화 됩니다.</p></div><div class="button-row"><button class="primary" data-action="copy-match-log" ${!host.ended || !host.matches.length ? 'disabled' : ''}>경기 결과/과정 복사하기</button></div></section>
+    <section class="panel export-panel"><div class="export-copy"><h2>게임 종료</h2><p>게임 종료(결과 공개) 버튼을 클릭하시면 지금 운영 중인 게임이 모두 종료됩니다. 게임 종료 버튼 클릭 시 진행 중인 게임 결과는 순위에 반영되지 않습니다. 결과 공개 페이지에서 게임 결과 내용을 복사하실 수 있습니다.</p></div><div class="button-row"><button class="danger end-reveal-button" data-action="open-end-session-modal" ${!host.started || host.ended ? 'disabled' : ''}>게임 종료(결과 공개)</button></div></section>
   </main>`;
   renderHostDynamic();
   const studentUrl = `${location.origin}${location.pathname}?mode=station&room=${host.room}`;
@@ -207,12 +209,25 @@ function showQrModal() {
 
 function standings() {
   if (!host) return [];
-  const stats = Object.fromEntries(host.players.map(p => [p.id, { ...p, wins: 0, losses: 0, points: 0, streak: 0 }]));
-  host.matches.filter(m => !m.void).forEach(m => {
-    if (stats[m.winnerId]) { stats[m.winnerId].wins++; stats[m.winnerId].points += 3; }
-    if (stats[m.loserId]) stats[m.loserId].losses++;
+  const stats = Object.fromEntries(host.players.map(p => [p.id, { ...p, games: 0, wins: 0, losses: 0, points: 0, currentStreak: 0, bestStreak: 0, totalTurns: 0, totalDurationMs: 0 }]));
+  host.matches.filter(m => !m.void).sort((a, b) => (a.endedAt || 0) - (b.endedAt || 0)).forEach(m => {
+    const winner = stats[m.winnerId], loser = stats[m.loserId];
+    if (winner) {
+      winner.games++; winner.wins++; winner.points += 3; winner.currentStreak++;
+      winner.bestStreak = Math.max(winner.bestStreak, winner.currentStreak);
+      winner.totalTurns += m.turnCount || 0; winner.totalDurationMs += m.durationMs || 0;
+    }
+    if (loser) {
+      loser.games++; loser.losses++; loser.currentStreak = 0;
+      loser.totalTurns += m.turnCount || 0; loser.totalDurationMs += m.durationMs || 0;
+    }
   });
-  return Object.values(stats).sort((a, b) => b.points - a.points || b.wins - a.wins || a.losses - b.losses || a.name.localeCompare(b.name));
+  return Object.values(stats).map(player => ({
+    ...player,
+    winRate: player.games ? Math.round((player.wins / player.games) * 100) : 0,
+    averageTurns: player.games ? Math.round(player.totalTurns / player.games) : 0,
+    averageDurationMs: player.games ? Math.round(player.totalDurationMs / player.games) : 0
+  })).sort((a, b) => b.points - a.points || b.wins - a.wins || a.losses - b.losses || a.name.localeCompare(b.name));
 }
 
 function stationStatus(s) {
@@ -237,7 +252,7 @@ function renderHostDynamic() {
 }
 
 function broadcastRoster() {
-  const stats = Object.fromEntries(standings().map(p => [p.id, { wins: p.wins, losses: p.losses, points: p.points }]));
+  const stats = Object.fromEntries(standings().map(p => [p.id, { games: p.games, wins: p.wins, losses: p.losses, points: p.points, winRate: p.winRate }]));
   const data = { type: 'ROSTER', players: host.players, stats, sessionTitle: host.title, ended: host.ended };
   hostConnections.forEach(conn => { if (conn.open) conn.send(data); });
 }
@@ -257,7 +272,7 @@ function startHostPeer() {
   peer.on('connection', conn => {
     conn.on('open', () => {
       hostConnections.set(conn.peer, conn);
-      const stats = Object.fromEntries(standings().map(p => [p.id, { wins: p.wins, losses: p.losses, points: p.points }]));
+      const stats = Object.fromEntries(standings().map(p => [p.id, { games: p.games, wins: p.wins, losses: p.losses, points: p.points, winRate: p.winRate }]));
       conn.send({ type: 'WELCOME', players: host.players, stats, sessionTitle: host.title, ended: host.ended });
     });
     conn.on('data', data => handleHostMessage(conn, data));
@@ -272,7 +287,7 @@ function handleHostMessage(conn, data) {
   if (data.type === 'REGISTER_STATION') {
     host.stations[data.stationId] = { stationId: data.stationId, number: data.number, status: 'ready', lastSeen: now() };
     conn.metadata = { stationId: data.stationId };
-    const stats = Object.fromEntries(standings().map(p => [p.id, { wins: p.wins, losses: p.losses, points: p.points }]));
+    const stats = Object.fromEntries(standings().map(p => [p.id, { games: p.games, wins: p.wins, losses: p.losses, points: p.points, winRate: p.winRate }]));
     conn.send({ type: 'ROSTER', players: host.players, stats, sessionTitle: host.title, ended: host.ended });
   }
   if (data.type === 'HEARTBEAT') {
@@ -401,6 +416,11 @@ function handleStationMessage(data) {
   if (data.type === 'WELCOME' || data.type === 'ROSTER') {
     station.players = data.players || [];
     station.stats = data.stats || station.stats || {};
+    if (data.ended) {
+      clearInterval(heartbeatTimer);
+      station.game = null; station.match = null; station.status = 'ended'; saveStation();
+      return stationSessionEndedView();
+    }
     saveStation();
     if (!station.game) stationLobbyView();
   }
@@ -412,6 +432,11 @@ function handleStationMessage(data) {
     resultAcceptedView();
   }
   if (data.type === 'RESULT_REJECTED') toast(data.reason, 'error');
+  if (data.type === 'SESSION_ENDED') {
+    clearInterval(heartbeatTimer);
+    station.game = null; station.match = null; station.status = 'ended'; ui.matchSelection = { blueId: '', redId: '' }; saveStation();
+    stationSessionEndedView();
+  }
 }
 
 function initialPieces() {
@@ -419,12 +444,12 @@ function initialPieces() {
   // 사용자 제공 8×8 기준 이미지의 좌표와 방향을 그대로 옮긴 배치.
   // 적색은 이미지의 밝은색 진영, 청색은 이미지의 어두운색 진영에 대응한다.
   return [
-    P('r-sp','red','splitter',0,0,1), P('r-t1','red','triangle',0,3,0), P('r-l','red','laser',0,7,3),
-    P('r-s1','red','square',2,7,2), P('r-t2','red','triangle',3,4,2), P('r-k','red','king',3,7,3),
-    P('r-t3','red','triangle',4,4,1), P('r-s2','red','square',4,7,2), P('r-t4','red','triangle',5,7,1), P('r-t5','red','triangle',6,0,0),
-    P('b-t1','blue','triangle',1,7,2), P('b-t2','blue','triangle',2,0,3), P('b-s1','blue','square',3,0,0),
-    P('b-t3','blue','triangle',3,3,3), P('b-k','blue','king',4,0,1), P('b-t4','blue','triangle',4,3,0),
-    P('b-s2','blue','square',5,0,0), P('b-l','blue','laser',7,0,1), P('b-t5','blue','triangle',7,4,2), P('b-sp','blue','splitter',7,7,3)
+    P('r-sp','red','splitter',0,0,0), P('r-t1','red','triangle',0,3,1), P('r-l','red','laser',0,7,3),
+    P('r-s1','red','square',2,7,3), P('r-t2','red','triangle',3,4,3), P('r-k','red','king',3,7,3),
+    P('r-t3','red','triangle',4,4,2), P('r-s2','red','square',4,7,3), P('r-t4','red','triangle',5,7,2), P('r-t5','red','triangle',6,0,1),
+    P('b-t1','blue','triangle',1,7,1), P('b-t2','blue','triangle',2,0,2), P('b-s1','blue','square',3,0,1),
+    P('b-t3','blue','triangle',3,3,2), P('b-k','blue','king',4,0,1), P('b-t4','blue','triangle',4,3,3),
+    P('b-s2','blue','square',5,0,1), P('b-l','blue','laser',7,0,1), P('b-t5','blue','triangle',7,4,1), P('b-sp','blue','splitter',7,7,0)
   ];
 }
 
@@ -467,10 +492,10 @@ function playerInfoPanel(owner) {
 function pieceGuide(owner) {
   const descriptions = [
     ['laser', '레이저', '이동 불가 · 턴 종료 후 자동 발사 · 피격 시 유지'],
-    ['splitter', '스플리터', '빛을 직진 투과하고 거울 방향으로 한 갈래 반사'],
+    ['splitter', '스플리터', '직진 투과 + 대각선 면을 따라 90도 분기 반사'],
     ['king', '왕', '어느 면이든 레이저에 맞으면 즉시 패배'],
-    ['triangle', '세모기사', '거울면 반사 · 다른 면 피격 시 제거'],
-    ['square', '네모기사', '거울면 반사 · 다른 면 피격 시 제거']
+    ['triangle', '세모기사', '대각선 거울면에서 바깥쪽으로 90도 반사'],
+    ['square', '네모기사', '색상 거울면에서 180도 되돌아감 · 다른 면 피격 시 제거']
   ];
   return `<aside class="game-piece-guide ${owner}-piece-guide"><h3>${owner === 'blue' ? '청색' : '적색'} 말 기능</h3><div>${descriptions.map(([type, name, description]) => `<article><img src="/images/pieces/${owner}/piece_${type}_${owner}.png?v=20260822-2" alt="${name}"><p><b>${name}</b><span>${description}</span></p></article>`).join('')}</div></aside>`;
 }
@@ -507,7 +532,7 @@ function renderBoard() {
   board.innerHTML = Array.from({ length: ROWS * COLS }, (_, idx) => {
     const r = Math.floor(idx / COLS), c = idx % COLS, p = pieceAt(r, c);
     const selected = p?.id === g.selectedId;
-    return `<button class="cell ${(r + c) % 2 ? 'odd' : ''} ${selected ? 'selected' : ''}" data-r="${r}" data-c="${c}" aria-label="${p ? `${p.owner === 'blue' ? '청색' : '적색'} ${PIECE_NAMES[p.type]}` : '빈 칸'}">${p ? `<span class="piece ${p.owner} ${p.type}" style="--dir:${p.dir * 90}deg"><img src="${pieceAsset(p)}" alt="" draggable="false"></span>` : ''}</button>`;
+    return `<button class="cell ${(r + c) % 2 ? 'odd' : ''} ${selected ? 'selected' : ''}" data-r="${r}" data-c="${c}" aria-label="${p ? `${p.owner === 'blue' ? '청색' : '적색'} ${PIECE_NAMES[p.type]}` : '빈 칸'}">${p ? `<span class="piece ${p.owner} ${p.type}" style="--dir:${p.dir * 90}deg"><img src="${pieceAsset(p)}" alt="" draggable="false">${p.type === 'laser' ? '<span class="laser-direction-arrow" aria-hidden="true"></span>' : ''}</span>` : ''}</button>`;
   }).join('');
 }
 
@@ -550,14 +575,6 @@ function completeAction(action) {
   setTimeout(() => fireLaser(g.turn), 180);
 }
 
-function reflectDirection(inDir, mirrorDir) {
-  // A 45° mirror has two reflective entry directions; rotating changes the pair.
-  const relative = (inDir - mirrorDir + 4) % 4;
-  if (relative === 0) return (inDir + 1) % 4;
-  if (relative === 3) return (inDir + 3) % 4;
-  return null;
-}
-
 function traceRay(r, c, dir, segments, hits, beamFx, visited, depth = 0) {
   if (depth > 10) return;
   let cr = r, cc = c, cd = dir;
@@ -571,15 +588,15 @@ function traceRay(r, c, dir, segments, hits, beamFx, visited, depth = 0) {
     if (hit.type === 'laser') return;
     if (hit.type === 'king') { hits.push(hit); return; }
     if (hit.type === 'splitter') {
-      const reflected = reflectDirection(cd, hit.dir);
+      const interaction = opticalInteraction(hit.type, hit.dir, cd);
       beamFx.push('splitter');
-      if (reflected !== null) traceRay(cr, cc, reflected, segments, hits, beamFx, new Set(visited), depth + 1);
+      interaction.reflected.forEach(reflected => traceRay(cr, cc, reflected, segments, hits, beamFx, new Set(visited), depth + 1));
       continue;
     }
-    const reflected = reflectDirection(cd, hit.dir);
-    if (reflected === null) { hits.push(hit); return; }
+    const interaction = opticalInteraction(hit.type, hit.dir, cd);
+    if (interaction.destroy || !interaction.reflected.length) { hits.push(hit); return; }
     beamFx.push('reflect');
-    cd = reflected;
+    cd = interaction.reflected[0];
   }
 }
 
@@ -593,6 +610,7 @@ function fireLaser(owner) {
   drawBeams(segments); sfx.play('laser');
   beamFx.forEach((name, i) => setTimeout(() => sfx.play(name, .65), 110 + i * 85));
   setTimeout(() => {
+    if (station.game !== g) return;
     const uniqueHits = [...new Map(hits.map(hit => [hit.id, hit])).values()];
     const processEntry = g.processLog?.[g.processLog.length - 1];
     const opticalText = beamFx.length ? `반사·분리 ${beamFx.length}회 · ` : '';
@@ -632,12 +650,46 @@ function resultAcceptedView() {
   let n = 3; const timer = setInterval(() => { n--; const el = document.querySelector('#countdown'); if (el) el.textContent = n; if (n <= 0) { clearInterval(timer); stationLobbyView(); connectStation(); } }, 1000);
 }
 
-function buildMatchClipboard() {
-  const summaryHeader = ['경기ID', '경기장', '청색선수', '적색선수', '승자', '패자', '경기시간(초)', '턴수', '시작시각', '종료시각'];
-  const summaryRows = host.matches.map(m => [m.matchId, m.stationNumber, m.blueName, m.redName, m.winnerName, m.loserName, Math.round(m.durationMs / 1000), m.turnCount, new Date(m.startedAt).toLocaleString('ko-KR'), new Date(m.endedAt).toLocaleString('ko-KR')]);
-  const processHeader = ['경기ID', '경기장', '턴', '선수', '진영', '행동', '레이저 결과', '경과시간'];
-  const processRows = host.matches.flatMap(m => (m.processLog || []).map(entry => [m.matchId, m.stationNumber, entry.turn, entry.playerName, entry.side === 'blue' ? '청색' : '적색', entry.action, entry.laserResult || '', fmtTime(entry.elapsedMs || 0)]));
-  return ['레이저 장기 경기 결과', summaryHeader.join('\t'), ...summaryRows.map(row => row.join('\t')), '', '레이저 장기 경기 과정', processHeader.join('\t'), ...processRows.map(row => row.join('\t'))].join('\n');
+function stationSessionEndedView() {
+  setScreen('station');
+  app.innerHTML = `${header(`${safe(station.number)}번 경기장`)}<main class="center shell"><section class="panel success-card session-ended-card"><div class="success-check">◆</div><p class="kicker">SESSION CLOSED</p><h2>교사가 게임 운영을 종료했습니다</h2><p>진행 중이던 경기는 최종 순위에 반영되지 않습니다.<br>교사 결과 공개 화면에서 최종 순위를 확인하세요.</p><button class="secondary large" data-action="home">메인화면</button></section></main>`;
+}
+
+function buildRankingClipboard() {
+  const header = ['순위', '플레이어', '경기 수', '승', '패', '승률', '승점', '평균 턴', '평균 경기 시간', '최고 연승'];
+  const rows = standings().map((player, index) => [index + 1, player.name, player.games, player.wins, player.losses, `${player.winRate}%`, player.points, player.averageTurns, fmtTime(player.averageDurationMs), player.bestStreak]);
+  return [`${host.title} 최종 순위`, header.join('\t'), ...rows.map(row => row.join('\t'))].join('\n');
+}
+
+function confettiMarkup() {
+  const colors = ['#f6c85f', '#ff6680', '#50dcff', '#ffffff', '#8d72ff'];
+  return `<div class="confetti-field" aria-hidden="true">${Array.from({ length: 72 }, (_, index) => `<i style="--x:${(index * 37) % 101};--delay:-${(index * 0.19).toFixed(2)}s;--duration:${5 + (index % 6) * .7}s;--drift:${(index % 2 ? 1 : -1) * (25 + (index % 5) * 9)}px;--color:${colors[index % colors.length]};--size:${6 + (index % 4) * 2}px"></i>`).join('')}</div>`;
+}
+
+function resultRevealView() {
+  if (mode() !== 'results') history.replaceState(null, '', `${location.pathname}?mode=results`);
+  setScreen('scoreboard');
+  host = hostState();
+  const rank = standings();
+  app.innerHTML = `<main class="result-reveal-page">
+    ${confettiMarkup()}
+    <header class="result-reveal-header"><div><p class="eyebrow">더 지니어스 한 학급 놀이</p><h1>${safe(host.title)}</h1><span>FINAL RANKING</span></div><button class="icon-btn result-home-button" data-action="home" aria-label="메인 화면">⌂</button></header>
+    <section class="final-ranking-card">
+      <div class="final-ranking-title"><div><p class="kicker">LASER JANGGI FINAL RESULT</p><h2>최종 순위표</h2><p>완료된 ${host.matches.length}경기 기준 · 진행 중이던 경기는 제외되었습니다.</p></div><aside class="result-copy-box"><button class="primary" data-action="copy-ranking">게임 결과 복사하기</button><p>이 버튼을 클릭한 후 엑셀/한셀에 들어가셔서 붙여넣기 하면 게임 결과를 저장할 수 있습니다.</p></aside></div>
+      <div class="final-ranking-table"><table><thead><tr><th>순위</th><th>플레이어</th><th>경기</th><th>승</th><th>패</th><th>승률</th><th>승점</th><th>평균 턴</th><th>평균 시간</th><th>최고 연승</th></tr></thead><tbody>${rank.map((player, index) => `<tr class="final-rank-${index + 1}"><td><span class="rank rank-${index + 1}">${index + 1}</span></td><td><strong>${safe(player.name)}</strong></td><td>${player.games}</td><td>${player.wins}</td><td>${player.losses}</td><td>${player.winRate}%</td><td><b>${player.points}</b></td><td>${player.averageTurns}</td><td>${fmtTime(player.averageDurationMs)}</td><td>${player.bestStreak}</td></tr>`).join('')}</tbody></table></div>
+    </section>
+  </main>`;
+}
+
+function endSessionAndReveal() {
+  hostConnections.forEach(conn => { if (conn.open) conn.send({ type: 'SESSION_ENDED' }); });
+  Object.values(host.stations).forEach(stationInfo => Object.assign(stationInfo, { status: 'ended', activeMatchId: null }));
+  host.active = {};
+  host.ended = true;
+  host.endedAt = now();
+  saveHost();
+  broadcastRoster();
+  resultRevealView();
 }
 
 async function copyText(value) {
@@ -652,7 +704,7 @@ async function copyText(value) {
 function showEndSessionModal() {
   document.querySelector('.session-modal-overlay')?.remove();
   const activeCount = Object.keys(host.active).length;
-  document.body.insertAdjacentHTML('beforeend', `<div class="session-modal-overlay" role="presentation"><section class="session-modal" role="dialog" aria-modal="true" aria-labelledby="end-session-title"><div class="modal-symbol">◈</div><p class="kicker">SESSION END</p><h2 id="end-session-title">게임 운영을 종료할까요?</h2><p>학생 태블릿의 새 경기 시작이 차단되고 운영 BGM이 정지됩니다.</p>${activeCount ? `<div class="modal-alert">현재 ${activeCount}개의 경기가 진행 중입니다.</div>` : ''}<p class="modal-note">완료된 결과는 복사를 위해 현재 화면에만 유지되며, 새 게임방을 시작하거나 탭을 닫으면 초기화됩니다.</p><div class="button-row"><button class="secondary" data-action="close-session-modal">계속 운영하기</button><button class="danger" data-action="confirm-end-session">게임 종료</button></div></section></div>`);
+  document.body.insertAdjacentHTML('beforeend', `<div class="session-modal-overlay" role="presentation"><section class="session-modal" role="dialog" aria-modal="true" aria-labelledby="end-session-title"><div class="modal-symbol">◆</div><p class="kicker">FINAL RESULT</p><h2 id="end-session-title">게임을 종료하고 결과를 공개할까요?</h2><p>완료된 경기만 최종 순위에 반영되며 모든 학생 경기장의 운영이 종료됩니다.</p>${activeCount ? `<div class="modal-alert">현재 진행 중인 ${activeCount}경기는 종료되며 순위에 반영되지 않습니다.</div>` : '<div class="modal-ready">현재 진행 중인 경기가 없습니다.</div>'}<p class="modal-note">결과 공개 페이지에서 최종 순위표를 복사해 엑셀 또는 한셀에 붙여넣을 수 있습니다.</p><div class="button-row"><button class="secondary" data-action="close-session-modal">계속 운영하기</button><button class="danger" data-action="confirm-end-session">게임 종료·결과 공개</button></div></section></div>`);
 }
 
 function showHostHomeModal() {
@@ -665,7 +717,7 @@ document.addEventListener('click', async e => {
   const action = actionEl?.dataset.action;
   if (!action) return;
   if (action === 'home') {
-    if (mode() === 'host') showHostHomeModal();
+    if (mode() === 'host' || mode() === 'results') showHostHomeModal();
     else navigate('');
     return;
   }
@@ -683,11 +735,11 @@ document.addEventListener('click', async e => {
     navigate(`mode=station&room=${code}`);
   }
   if (action === 'set-station') { station.number = actionEl.dataset.number; station.status = 'ready'; saveStation(); stationLobbyView(); connectStation(); }
-  if (action === 'start-session') {
+  if (action === 'confirm-roster') {
     const names = document.querySelector('#roster').value.split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
     if (names.length < 2) return toast('플레이어를 두 명 이상 등록하세요.', 'error');
     if (new Set(names).size !== names.length) return toast('중복된 이름이 있습니다.', 'error');
-    host.title = document.querySelector('#room-title').value.trim() || '우리 반 레이저 장기'; host.players = names.map((name, i) => ({ id: `p-${i + 1}`, name })); host.started = true; host.ended = false; sfx.play('confirm'); setHostBgm(true); saveHost(); hostView();
+    host.title = document.querySelector('#room-title').value.trim() || '우리 반 레이저 장기'; host.players = names.map((name, i) => ({ id: `p-${i + 1}`, name })); host.started = true; host.ended = false; sfx.play('confirm'); saveHost(); hostView();
   }
   if (action === 'open-end-session-modal') showEndSessionModal();
   if (action === 'close-session-modal') document.querySelector('.session-modal-overlay')?.remove();
@@ -697,7 +749,7 @@ document.addEventListener('click', async e => {
   }
   if (action === 'confirm-end-session') {
     document.querySelector('.session-modal-overlay')?.remove();
-    host.ended = true; setHostBgm(false); saveHost(); broadcastRoster(); hostView();
+    endSessionAndReveal();
   }
   if (action === 'new-session') { sessionStorage.removeItem('laser-host'); host = null; peer?.destroy(); peer = null; hostView(); }
   if (action === 'open-qr-modal') showQrModal();
@@ -705,7 +757,7 @@ document.addEventListener('click', async e => {
   if (action === 'copy-link') { await copyText(studentAccessUrl()); toast('학생 접속 링크를 복사했습니다.', 'success'); }
   if (action === 'fullscreen-board') document.querySelector('.scoreboard-panel')?.requestFullscreen();
   if (action === 'toggle-bgm') await setHostBgm(hostBgm.paused, true);
-  if (action === 'copy-match-log') { await copyText(buildMatchClipboard()); sfx.play('confirm'); toast('경기 결과와 과정을 복사했습니다. 한셀 또는 엑셀에 붙여넣으세요.', 'success'); }
+  if (action === 'copy-ranking') { await copyText(buildRankingClipboard()); sfx.play('confirm'); toast('최종 순위표를 복사했습니다. 엑셀 또는 한셀에 붙여넣으세요.', 'success'); }
   if (action === 'request-match') {
     const { blueId, redId } = ui.matchSelection;
     if (!blueId || !redId || blueId === redId) return toast('서로 다른 두 명을 선택하세요.', 'error');
@@ -746,6 +798,7 @@ document.addEventListener('input', e => {
 window.addEventListener('beforeunload', () => { clearInterval(heartbeatTimer); });
 
 if (mode() === 'host') hostView();
+else if (mode() === 'results') resultRevealView();
 else if (mode() === 'station') stationView();
 else if (mode() === 'practice') stationView(true);
 else homeView();
