@@ -14,7 +14,7 @@ const DIRS = [
 ];
 const DIR_LABELS = ['위', '오른쪽', '아래', '왼쪽'];
 const PIECE_NAMES = { laser: '레이저', splitter: '스플리터', king: '왕', triangle: '세모기사', square: '네모기사' };
-const ui = { toastTimer: null };
+const ui = { toastTimer: null, guideSlide: 0, matchSelection: { blueId: '', redId: '' } };
 let peer = null;
 let hostConnections = new Map();
 let stationConnection = null;
@@ -31,7 +31,8 @@ const getParams = () => new URLSearchParams(location.search);
 const mode = () => getParams().get('mode') || 'home';
 const roomCode = () => (getParams().get('room') || '').toUpperCase();
 const navigate = params => { location.href = `${location.pathname}?${params}`; };
-const setScreen = screen => { document.body.dataset.screen = screen; };
+const createRoomCode = () => String(Math.floor(1000 + Math.random() * 9000));
+const setScreen = screen => { document.body.dataset.screen = screen; renderBgmDock(); };
 
 function toast(message, tone = 'info') {
   document.querySelector('.toast')?.remove();
@@ -65,11 +66,21 @@ const hostBgm = new Audio('/audio/host-bgm.mp3');
 hostBgm.loop = true;
 hostBgm.volume = Number(localStorage.getItem('laser-bgm-volume') || .22);
 async function setHostBgm(playing, notifyMissing = false) {
-  if (!playing) { hostBgm.pause(); sessionStorage.setItem('laser-bgm-playing', '0'); return; }
+  if (!playing) { hostBgm.pause(); sessionStorage.setItem('laser-bgm-playing', '0'); renderBgmDock(); return; }
   try { await hostBgm.play(); sessionStorage.setItem('laser-bgm-playing', '1'); }
   catch { sessionStorage.setItem('laser-bgm-playing', '0'); if (notifyMissing) toast('public/audio/host-bgm.mp3 파일을 추가해주세요.', 'error'); }
+  renderBgmDock();
 }
 document.addEventListener('click', e => { if (e.target.closest('button')) sfx.play('click', .55); });
+
+function renderBgmDock() {
+  document.querySelector('.bgm-dock')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `<aside class="bgm-dock" aria-label="배경음악 제어">
+    <button class="bgm-play-button" data-action="toggle-bgm" aria-label="${hostBgm.paused ? '배경음악 재생' : '배경음악 일시정지'}">${hostBgm.paused ? '▶' : 'Ⅱ'}</button>
+    <b>BGM</b>
+    <input id="bgm-volume" type="range" min="0" max="1" step="0.05" value="${hostBgm.volume}" aria-label="BGM 음량">
+  </aside>`);
+}
 
 function header(title, subtitle = '', actions = '') {
   return `<header class="topbar"><div class="brand-mark">LZ</div><div><p class="eyebrow">더 지니어스 한 학급 놀이</p><h1>${safe(title)}</h1>${subtitle ? `<p class="subtitle">${safe(subtitle)}</p>` : ''}</div><div class="topbar-actions">${actions}<button class="icon-btn" data-action="home" aria-label="메인 화면">⌂</button></div></header>`;
@@ -79,24 +90,66 @@ function homeView() {
   setScreen('home');
   app.innerHTML = `<main class="home shell">
     <section class="hero-panel">
-      <img class="title-emblem" src="/images/logos/emblem_title.png" alt="레이저 장기 왕관 문양">
       <p class="eyebrow">더 지니어스 한 학급 놀이</p>
       <h1>레이저 장기</h1>
-      <p class="hero-copy">빛의 경로를 설계하고, 상대의 왕을 제거하라.</p>
+      <p class="curriculum-copy">3,4학년 과학 빛과 그림자 / 수학 평면도형의 이동 활동과 연계<br>문제해결, 전략 수립, 학급 놀이 활동</p>
       <div class="hero-actions">
         <button class="primary large" data-action="open-host">교사 운영 페이지</button>
         <button class="secondary large" data-action="open-station">학생 경기장 접속</button>
+        <button class="secondary large guide-button" data-action="open-guide">게임 설명서</button>
       </div>
       <button class="text-btn" data-action="practice">연결 없이 연습 경기</button>
     </section>
-    <footer>한 대의 태블릿 · 두 명의 플레이어 · 휘발성 경기 기록</footer>
   </main>`;
+}
+
+const GUIDE_SLIDES = [
+  {
+    kicker: 'GAME OBJECTIVE', title: '빛의 경로를 완성해 왕을 제거하세요',
+    body: `<div class="guide-goal-grid"><article><b>게임 목표</b><p>말을 한 칸 이동하거나 90도 회전해 레이저의 경로를 설계합니다.</p></article><article><b>승리 조건</b><p>내 턴이 끝날 때 자동 발사되는 레이저로 상대 왕을 먼저 제거하면 승리합니다.</p></article></div><div class="guide-link-flow"><span>교사 운영 페이지<br><small>명단·경기장·순위 관리</small></span><i>⇄</i><span>학생 경기장<br><small>2인 대전·결과 전송</small></span></div><p class="guide-note">경기 시작·연결 상태·종료 결과만 교사 화면으로 전달되며, 실제 대국은 한 대의 태블릿에서 진행됩니다.</p>`
+  },
+  {
+    kicker: 'PIECE & RULES', title: '다섯 종류의 말을 이해하세요',
+    body: `<div class="guide-piece-grid">
+      <article><img src="/images/pieces/blue/piece_laser_blue.png?v=20260822-2" alt="레이저"><div><b>레이저</b><p>이동할 수 없고 턴 종료 후 자동 발사됩니다. 피격되어도 제거되지 않습니다.</p></div></article>
+      <article><img src="/images/pieces/blue/piece_splitter_blue.png?v=20260822-2" alt="스플리터"><div><b>스플리터</b><p>빛을 직진으로 통과시키면서 거울 방향으로 반사해 두 갈래로 나눕니다.</p></div></article>
+      <article><img src="/images/pieces/blue/piece_king_blue.png?v=20260822-2" alt="왕"><div><b>왕</b><p>어느 면이든 레이저에 맞으면 즉시 제거되고 게임이 끝납니다.</p></div></article>
+      <article><img src="/images/pieces/blue/piece_triangle_blue.png?v=20260822-2" alt="세모기사"><div><b>세모기사</b><p>거울면은 빛을 반사하며, 거울이 없는 면에 맞으면 제거됩니다.</p></div></article>
+      <article><img src="/images/pieces/blue/piece_square_blue.png?v=20260822-2" alt="네모기사"><div><b>네모기사</b><p>거울면은 빛을 반사하며, 거울이 없는 면에 맞으면 제거됩니다.</p></div></article>
+    </div><p class="guide-note">한 턴에는 내 말 하나를 인접한 8방향으로 한 칸 이동하거나, 내 말 하나를 90도 회전합니다. 레이저는 판 밖을 향하도록 돌릴 수 없습니다.</p>`
+  },
+  {
+    kicker: 'TEACHER SETUP', title: '교사 운영 페이지 실행 순서',
+    body: `<ol class="guide-steps"><li><b>플레이어 등록</b><span>게임 이름과 학생 이름을 줄바꿈으로 입력합니다.</span></li><li><b>게임 운영 시작</b><span>버튼을 눌러 4자리 학급 코드와 학생 접속 QR을 활성화합니다.</span></li><li><b>학생 경기장 접속</b><span>태블릿에서 QR을 스캔하거나 메인 화면의 ‘학생 경기장 접속’에서 4자리 코드를 입력합니다.</span></li><li><b>경기장 번호 지정</b><span>고정된 태블릿마다 서로 다른 경기장 번호를 선택합니다.</span></li><li><b>선수 선택과 결과 확인</b><span>학생 두 명이 이름 카드를 선택해 대국하고, 종료 결과는 순위와 최근 경기에 반영됩니다.</span></li><li><b>기록 복사 후 종료</b><span>운영 종료 뒤 경기 결과·과정을 복사해 한셀 또는 엑셀에 붙여넣습니다.</span></li></ol>`
+  },
+  {
+    kicker: 'MORE INFORMATION', title: '영상으로 규칙을 확인할 수 있어요',
+    body: `<div class="youtube-guide"><div class="youtube-mark">▶</div><p>유튜브 검색창에서 아래 문구를 검색하면<br>레이저 장기의 실제 진행과 규칙 영상을 찾아볼 수 있습니다.</p><strong>지니어스 게임 레이저 장기 게임 규칙</strong><small>영상은 수업 전에 교사가 먼저 확인한 뒤 필요한 부분만 활용해 주세요.</small></div>`
+  }
+];
+
+function showGuideModal(slide = ui.guideSlide) {
+  ui.guideSlide = Math.max(0, Math.min(GUIDE_SLIDES.length - 1, slide));
+  document.querySelector('.guide-modal-overlay')?.remove();
+  const current = GUIDE_SLIDES[ui.guideSlide];
+  document.body.insertAdjacentHTML('beforeend', `<div class="guide-modal-overlay" role="presentation"><section class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+    <button class="guide-close" data-action="close-guide" aria-label="설명서 닫기">×</button>
+    <div class="guide-progress"><span>${ui.guideSlide + 1}</span> / ${GUIDE_SLIDES.length}</div>
+    <p class="kicker">${current.kicker}</p><h2 id="guide-title">${current.title}</h2>
+    <div class="guide-slide-body">${current.body}</div>
+    <div class="guide-footer"><div class="guide-dots">${GUIDE_SLIDES.map((_, index) => `<button class="guide-dot ${index === ui.guideSlide ? 'active' : ''}" data-action="guide-jump" data-slide="${index}" aria-label="${index + 1}번째 설명"></button>`).join('')}</div><div class="guide-nav"><button class="secondary" data-action="guide-prev" ${ui.guideSlide === 0 ? 'disabled' : ''}>이전</button><button class="primary" data-action="${ui.guideSlide === GUIDE_SLIDES.length - 1 ? 'close-guide' : 'guide-next'}">${ui.guideSlide === GUIDE_SLIDES.length - 1 ? '설명서 닫기' : '다음'}</button></div></div>
+  </section></div>`);
 }
 
 function hostState() {
   const cached = sessionStorage.getItem('laser-host');
-  return cached ? JSON.parse(cached) : {
-    room: Math.random().toString(36).slice(2, 7).toUpperCase(),
+  if (cached) {
+    const parsed = JSON.parse(cached);
+    if (!/^\d{4}$/.test(parsed.room || '')) parsed.room = createRoomCode();
+    return parsed;
+  }
+  return {
+    room: createRoomCode(),
     title: '우리 반 레이저 장기', players: [], stations: {}, matches: [], active: {},
     started: false, ended: false, createdAt: now()
   };
@@ -109,6 +162,7 @@ function saveHost() {
 function hostView() {
   setScreen('host');
   host = hostState();
+  saveHost();
   const endAction = host.started && !host.ended ? '<button class="topbar-end-btn" data-action="open-end-session-modal">게임 종료(게임 초기화)</button>' : '';
   app.innerHTML = `${header('레이저 장기 관제실', '모든 데이터는 이 탭에만 임시 저장됩니다.', endAction)}
   <main class="host-layout shell wide">
@@ -123,11 +177,10 @@ function hostView() {
         ${host.ended ? '<button class="secondary" data-action="new-session">새 게임방</button>' : ''}
       </div>
       <p class="privacy-note">경기 결과는 이 운영 탭에만 임시로 보관됩니다.</p>
-      <div class="bgm-control"><div><b>게임 운영 BGM</b><small>교사 운영 페이지에서만 재생</small></div><button class="secondary small" data-action="toggle-bgm">${hostBgm.paused ? '▶ 재생' : 'Ⅱ 일시정지'}</button><input id="bgm-volume" type="range" min="0" max="1" step="0.05" value="${hostBgm.volume}" aria-label="BGM 음량"></div>
     </section>
     <section class="panel connection-panel">
       <div class="section-head"><div><p class="kicker">STUDENT ACCESS</p><h2>경기장 접속</h2></div><b class="room-code">${host.room}</b></div>
-      <div class="qr-wrap"><canvas id="qr"></canvas><div><p>학생 태블릿에서 QR을 스캔하세요.</p><button class="secondary small" data-action="copy-link">링크 복사</button></div></div>
+      <div class="qr-wrap"><button class="qr-trigger" data-action="open-qr-modal" aria-label="학생 경기장 QR코드 크게 보기"><canvas id="qr"></canvas><span>클릭하여 크게 보기</span></button><div><p>학생 태블릿에서 QR을 스캔하세요.</p><button class="secondary small" data-action="copy-link">링크 복사</button></div></div>
       <div class="connection-status" id="peer-status"><span></span> 연결 준비 중</div>
     </section>
     <section class="panel stations-panel"><div class="section-head"><div><p class="kicker">LIVE ARENAS</p><h2>경기장 현황</h2></div><strong>${Object.keys(host.stations).length}대 연결</strong></div><div id="station-grid"></div></section>
@@ -140,6 +193,16 @@ function hostView() {
   QRCode.toCanvas(document.querySelector('#qr'), studentUrl, { width: 160, margin: 1, color: { dark: '#07111fff', light: '#f4ead4ff' } });
   if (host.started && !host.ended) startHostPeer();
   if (sessionStorage.getItem('laser-bgm-playing') === '1' && host.started && !host.ended) setHostBgm(true);
+}
+
+function studentAccessUrl() {
+  return `${location.origin}${location.pathname}?mode=station&room=${host.room}`;
+}
+
+function showQrModal() {
+  document.querySelector('.qr-modal-overlay')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `<div class="qr-modal-overlay" role="presentation"><section class="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title"><button class="guide-close" data-action="close-qr-modal" aria-label="QR코드 닫기">×</button><p class="kicker">STUDENT ACCESS</p><h2 id="qr-modal-title">학생 경기장 접속</h2><b class="qr-modal-code">${host.room}</b><div class="qr-large-frame"><canvas id="qr-large"></canvas></div><p>학생 태블릿 카메라로 QR코드를 스캔하세요.</p><button class="primary large" data-action="copy-link">링크 복사</button></section></div>`);
+  QRCode.toCanvas(document.querySelector('#qr-large'), studentAccessUrl(), { width: 360, margin: 2, color: { dark: '#07111fff', light: '#fffaf0ff' } });
 }
 
 function standings() {
@@ -184,7 +247,13 @@ function startHostPeer() {
   peer = new Peer(`laser-${host.room.toLowerCase()}`);
   const status = document.querySelector('#peer-status');
   peer.on('open', () => { if (status) status.innerHTML = '<span class="ok"></span> 학생 접속 가능'; });
-  peer.on('error', err => { if (status) status.innerHTML = `<span class="bad"></span> 연결 오류: ${safe(err.type)}`; });
+  peer.on('error', err => {
+    if (err.type === 'unavailable-id') {
+      host.room = createRoomCode(); saveHost(); peer?.destroy(); peer = null; hostView();
+      return toast('코드가 겹쳐 새 4자리 코드로 자동 변경했습니다.', 'error');
+    }
+    if (status) status.innerHTML = `<span class="bad"></span> 연결 오류: ${safe(err.type)}`;
+  });
   peer.on('connection', conn => {
     conn.on('open', () => {
       hostConnections.set(conn.peer, conn);
@@ -281,7 +350,7 @@ function stationView(practice = false) {
 
 function stationJoinView() {
   setScreen('station');
-  app.innerHTML = `${header('학생 경기장 접속')}<main class="center shell"><section class="panel join-card"><p class="kicker">ENTER ARENA</p><h2>방 코드를 입력하세요</h2><input id="join-code" class="code-input" maxlength="8" placeholder="LZ4827"><button class="primary large" data-action="join-room">경기장 접속</button></section></main>`;
+  app.innerHTML = `${header('학생 경기장 접속')}<main class="center shell"><section class="panel join-card"><p class="kicker">ENTER ARENA</p><h2>4자리 경기장 코드를 입력하세요</h2><input id="join-code" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4827" autocomplete="off"><button class="primary large" data-action="join-room">경기장 접속</button></section></main>`;
 }
 
 function stationRegisterView() {
@@ -291,10 +360,18 @@ function stationRegisterView() {
 
 function stationLobbyView() {
   setScreen('station');
+  const selectedBlue = station.players.find(player => player.id === ui.matchSelection.blueId);
+  const selectedRed = station.players.find(player => player.id === ui.matchSelection.redId);
+  const playerCards = station.players.map(player => {
+    const side = player.id === ui.matchSelection.blueId ? 'blue' : player.id === ui.matchSelection.redId ? 'red' : '';
+    const stats = station.stats?.[player.id] || { wins: 0, losses: 0, points: 0 };
+    return `<button class="player-card ${side ? `selected-${side}` : ''}" data-action="select-player" data-player-id="${safe(player.id)}"><strong>${safe(player.name)}</strong><small>${stats.wins || 0}승 ${stats.losses || 0}패 · ${stats.points || 0}점</small>${side ? `<span>${side === 'blue' ? '청색' : '적색'}</span>` : ''}</button>`;
+  }).join('');
   app.innerHTML = `${header(`${safe(station.number)}번 경기장`, `방 코드 ${roomCode()}`)}<main class="station-shell shell">
     <section class="panel player-select"><div class="connection-status" id="station-peer">${stationConnection?.open ? '<span class="ok"></span> 교사 화면 연결됨' : '<span></span> 교사 화면 연결 중'}</div><p class="kicker">PLAYER MATCHING</p><h2>도전자 두 명을 선택하세요</h2>
-      <div class="versus-select"><label class="blue-side">청색 플레이어<select id="blue-player"><option value="">이름 선택</option>${station.players.map(p => `<option value="${p.id}">${safe(p.name)}</option>`).join('')}</select></label><b>VS</b><label class="red-side">적색 플레이어<select id="red-player"><option value="">이름 선택</option>${station.players.map(p => `<option value="${p.id}">${safe(p.name)}</option>`).join('')}</select></label></div>
-      <button class="primary large" data-action="request-match" ${stationConnection?.open ? '' : 'disabled'}>두 선수 확인 · 경기 시작</button>
+      <div class="player-slots"><article class="blue-slot"><span>청색 플레이어</span><strong>${selectedBlue ? safe(selectedBlue.name) : '이름 카드를 선택하세요'}</strong>${selectedBlue ? '<button data-action="clear-player" data-side="blue" aria-label="청색 선택 해제">×</button>' : ''}</article><b>VS</b><article class="red-slot"><span>적색 플레이어</span><strong>${selectedRed ? safe(selectedRed.name) : '이름 카드를 선택하세요'}</strong>${selectedRed ? '<button data-action="clear-player" data-side="red" aria-label="적색 선택 해제">×</button>' : ''}</article></div>
+      <p class="selection-guide">이름을 차례로 누르면 청색, 적색 순서로 배정됩니다.</p><div class="player-card-grid">${playerCards || '<p class="empty">등록된 플레이어가 없습니다.</p>'}</div>
+      <button class="primary large match-start-button" data-action="request-match" ${stationConnection?.open && selectedBlue && selectedRed ? '' : 'disabled'}>두 선수 확인 · 경기 시작</button>
       ${station.game ? '<button class="secondary" data-action="resume-game">진행 중인 경기 이어하기</button>' : ''}
     </section></main>`;
 }
@@ -330,7 +407,7 @@ function handleStationMessage(data) {
   if (data.type === 'MATCH_START_REJECTED') toast(data.reason, 'error');
   if (data.type === 'MATCH_START_APPROVED') { station.match = data.match; startLocalGame(data.match); }
   if (data.type === 'RESULT_ACCEPTED') {
-    station.game = null; station.match = null; station.status = 'ready'; saveStation();
+    station.game = null; station.match = null; station.status = 'ready'; ui.matchSelection = { blueId: '', redId: '' }; saveStation();
     sfx.play('sent', .85);
     resultAcceptedView();
   }
@@ -387,6 +464,17 @@ function playerInfoPanel(owner) {
   </aside>`;
 }
 
+function pieceGuide(owner) {
+  const descriptions = [
+    ['laser', '레이저', '이동 불가 · 턴 종료 후 자동 발사 · 피격 시 유지'],
+    ['splitter', '스플리터', '빛을 직진 투과하고 거울 방향으로 한 갈래 반사'],
+    ['king', '왕', '어느 면이든 레이저에 맞으면 즉시 패배'],
+    ['triangle', '세모기사', '거울면 반사 · 다른 면 피격 시 제거'],
+    ['square', '네모기사', '거울면 반사 · 다른 면 피격 시 제거']
+  ];
+  return `<aside class="game-piece-guide ${owner}-piece-guide"><h3>${owner === 'blue' ? '청색' : '적색'} 말 기능</h3><div>${descriptions.map(([type, name, description]) => `<article><img src="/images/pieces/${owner}/piece_${type}_${owner}.png?v=20260822-2" alt="${name}"><p><b>${name}</b><span>${description}</span></p></article>`).join('')}</div></aside>`;
+}
+
 function gameView(practice = station.game?.practice) {
   const g = station.game;
   if (!g) return stationLobbyView();
@@ -396,6 +484,7 @@ function gameView(practice = station.game?.practice) {
   app.innerHTML = `<main class="game-screen">
     ${playerHud('red', red)}
     <section class="game-body">
+      ${pieceGuide('red')}
       ${playerInfoPanel('red')}
       <section class="board-stage">
         <div class="arena-caption practice-blue-caption">${g.practice ? '연습 경기' : ''}</div>
@@ -403,6 +492,7 @@ function gameView(practice = station.game?.practice) {
         <div class="arena-caption practice-red-caption">${g.practice ? '연습 경기' : ''}</div>
       </section>
       ${playerInfoPanel('blue')}
+      ${pieceGuide('blue')}
     </section>
     ${playerHud('blue', blue)}
     ${g.over ? resultOverlay() : ''}
@@ -565,15 +655,34 @@ function showEndSessionModal() {
   document.body.insertAdjacentHTML('beforeend', `<div class="session-modal-overlay" role="presentation"><section class="session-modal" role="dialog" aria-modal="true" aria-labelledby="end-session-title"><div class="modal-symbol">◈</div><p class="kicker">SESSION END</p><h2 id="end-session-title">게임 운영을 종료할까요?</h2><p>학생 태블릿의 새 경기 시작이 차단되고 운영 BGM이 정지됩니다.</p>${activeCount ? `<div class="modal-alert">현재 ${activeCount}개의 경기가 진행 중입니다.</div>` : ''}<p class="modal-note">완료된 결과는 복사를 위해 현재 화면에만 유지되며, 새 게임방을 시작하거나 탭을 닫으면 초기화됩니다.</p><div class="button-row"><button class="secondary" data-action="close-session-modal">계속 운영하기</button><button class="danger" data-action="confirm-end-session">게임 종료</button></div></section></div>`);
 }
 
+function showHostHomeModal() {
+  document.querySelector('.session-modal-overlay')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `<div class="session-modal-overlay" role="presentation"><section class="session-modal" role="dialog" aria-modal="true" aria-labelledby="host-home-title"><div class="modal-symbol">⌂</div><p class="kicker">RETURN HOME</p><h2 id="host-home-title">메인화면으로 이동할까요?</h2><div class="modal-alert">게임을 종료하시겠습니까? 모든 데이터가 초기화됩니다.</div><p class="modal-note">현재 플레이어 명단, 경기장 연결 상태, 순위와 경기 결과를 다시 불러올 수 없습니다.</p><div class="button-row"><button class="secondary" data-action="close-session-modal">계속 운영하기</button><button class="danger" data-action="confirm-host-home">게임 종료 후 이동</button></div></section></div>`);
+}
+
 document.addEventListener('click', async e => {
-  const action = e.target.closest('[data-action]')?.dataset.action;
+  const actionEl = e.target.closest('[data-action]');
+  const action = actionEl?.dataset.action;
   if (!action) return;
-  if (action === 'home') navigate('');
+  if (action === 'home') {
+    if (mode() === 'host') showHostHomeModal();
+    else navigate('');
+    return;
+  }
+  if (action === 'open-guide') { ui.guideSlide = 0; showGuideModal(); }
+  if (action === 'close-guide') document.querySelector('.guide-modal-overlay')?.remove();
+  if (action === 'guide-prev') showGuideModal(ui.guideSlide - 1);
+  if (action === 'guide-next') showGuideModal(ui.guideSlide + 1);
+  if (action === 'guide-jump') showGuideModal(Number(actionEl.dataset.slide));
   if (action === 'open-host') navigate('mode=host');
   if (action === 'open-station') navigate('mode=station');
   if (action === 'practice') navigate('mode=practice');
-  if (action === 'join-room') { const code = document.querySelector('#join-code').value.trim(); if (code) navigate(`mode=station&room=${encodeURIComponent(code)}`); }
-  if (action === 'set-station') { station.number = e.target.dataset.number; station.status = 'ready'; saveStation(); stationLobbyView(); connectStation(); }
+  if (action === 'join-room') {
+    const code = document.querySelector('#join-code').value.replace(/\D/g, '');
+    if (!/^\d{4}$/.test(code)) return toast('숫자 4자리 경기장 코드를 입력하세요.', 'error');
+    navigate(`mode=station&room=${code}`);
+  }
+  if (action === 'set-station') { station.number = actionEl.dataset.number; station.status = 'ready'; saveStation(); stationLobbyView(); connectStation(); }
   if (action === 'start-session') {
     const names = document.querySelector('#roster').value.split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
     if (names.length < 2) return toast('플레이어를 두 명 이상 등록하세요.', 'error');
@@ -582,20 +691,36 @@ document.addEventListener('click', async e => {
   }
   if (action === 'open-end-session-modal') showEndSessionModal();
   if (action === 'close-session-modal') document.querySelector('.session-modal-overlay')?.remove();
+  if (action === 'confirm-host-home') {
+    host.ended = true; broadcastRoster(); await setHostBgm(false); peer?.destroy(); peer = null; hostConnections.clear();
+    sessionStorage.removeItem('laser-host'); navigate('');
+  }
   if (action === 'confirm-end-session') {
     document.querySelector('.session-modal-overlay')?.remove();
     host.ended = true; setHostBgm(false); saveHost(); broadcastRoster(); hostView();
   }
   if (action === 'new-session') { sessionStorage.removeItem('laser-host'); host = null; peer?.destroy(); peer = null; hostView(); }
-  if (action === 'copy-link') { await navigator.clipboard.writeText(`${location.origin}${location.pathname}?mode=station&room=${host.room}`); toast('학생 접속 링크를 복사했습니다.', 'success'); }
+  if (action === 'open-qr-modal') showQrModal();
+  if (action === 'close-qr-modal') document.querySelector('.qr-modal-overlay')?.remove();
+  if (action === 'copy-link') { await copyText(studentAccessUrl()); toast('학생 접속 링크를 복사했습니다.', 'success'); }
   if (action === 'fullscreen-board') document.querySelector('.scoreboard-panel')?.requestFullscreen();
-  if (action === 'toggle-bgm') { await setHostBgm(hostBgm.paused, true); hostView(); }
+  if (action === 'toggle-bgm') await setHostBgm(hostBgm.paused, true);
   if (action === 'copy-match-log') { await copyText(buildMatchClipboard()); sfx.play('confirm'); toast('경기 결과와 과정을 복사했습니다. 한셀 또는 엑셀에 붙여넣으세요.', 'success'); }
   if (action === 'request-match') {
-    const blueId = document.querySelector('#blue-player').value, redId = document.querySelector('#red-player').value;
+    const { blueId, redId } = ui.matchSelection;
     if (!blueId || !redId || blueId === redId) return toast('서로 다른 두 명을 선택하세요.', 'error');
     stationConnection.send({ type: 'MATCH_START_REQUEST', stationId: station.stationId, stationNumber: station.number, blueId, redId }); toast('교사 화면에서 참가 가능 여부를 확인 중입니다.');
   }
+  if (action === 'select-player') {
+    const playerId = actionEl.dataset.playerId;
+    if (ui.matchSelection.blueId === playerId) ui.matchSelection.blueId = '';
+    else if (ui.matchSelection.redId === playerId) ui.matchSelection.redId = '';
+    else if (!ui.matchSelection.blueId) ui.matchSelection.blueId = playerId;
+    else if (!ui.matchSelection.redId) ui.matchSelection.redId = playerId;
+    else ui.matchSelection.redId = playerId;
+    stationLobbyView();
+  }
+  if (action === 'clear-player') { ui.matchSelection[`${actionEl.dataset.side}Id`] = ''; stationLobbyView(); }
   if (action === 'resume-game') gameView();
   if (action === 'rotate-left') rotateSelected(-1, e.target.closest('[data-action]')?.dataset.side || '');
   if (action === 'rotate-right') rotateSelected(1, e.target.closest('[data-action]')?.dataset.side || '');
@@ -611,6 +736,7 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('input', e => {
+  if (e.target.id === 'join-code') e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
   if (e.target.id === 'bgm-volume') {
     hostBgm.volume = Number(e.target.value);
     localStorage.setItem('laser-bgm-volume', String(hostBgm.volume));
