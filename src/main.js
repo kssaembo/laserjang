@@ -38,7 +38,11 @@ const fmtTime = ms => {
 const getParams = () => new URLSearchParams(location.search);
 const mode = () => getParams().get('mode') || 'home';
 const roomCode = () => (getParams().get('room') || '').toUpperCase();
-const navigate = params => { location.href = `${location.pathname}?${params}`; };
+let navigationTimer = null;
+const navigate = params => {
+  clearTimeout(navigationTimer);
+  navigationTimer = setTimeout(() => { location.href = `${location.pathname}?${params}`; }, 130);
+};
 const createRoomCode = () => String(Math.floor(1000 + Math.random() * 9000));
 const setScreen = screen => { document.body.dataset.screen = screen; renderBgmDock(); };
 
@@ -79,7 +83,16 @@ async function setHostBgm(playing, notifyMissing = false) {
   catch { sessionStorage.setItem('laser-bgm-playing', '0'); if (notifyMissing) toast('public/audio/host-bgm.mp3 파일을 추가해주세요.', 'error'); }
   renderBgmDock();
 }
-document.addEventListener('click', e => { if (e.target.closest('button')) sfx.play('click', .55); });
+const CONFIRM_BUTTON_ACTIONS = new Set(['confirm-host-home', 'confirm-end-session', 'confirm-abort-game']);
+function playButtonFeedback(button) {
+  if (!button || button.disabled) return;
+  const action = button.dataset.action || '';
+  sfx.play(CONFIRM_BUTTON_ACTIONS.has(action) ? 'confirm' : 'click', .82);
+}
+document.addEventListener('pointerdown', e => playButtonFeedback(e.target.closest('button')));
+document.addEventListener('keydown', e => {
+  if (!e.repeat && (e.key === 'Enter' || e.key === ' ') && e.target.matches('button')) playButtonFeedback(e.target);
+});
 
 function renderBgmDock() {
   document.querySelector('.bgm-dock')?.remove();
@@ -158,7 +171,16 @@ function mathIntroContent() {
 function introSpeechView() {
   setScreen('intro');
   const science = ui.intro.subject === 'science';
-  app.innerHTML = `<main class="intro-page"><section class="intro-shell intro-speech-shell"><button class="intro-skip" data-action="skip-intro">건너뛰기</button><div class="intro-villain-symbol">◆</div><p class="intro-rising-speech">이제 ${science ? '빛의 성질' : '평면도형의 이동'}에 대해서 충분히 이해했나?<br>그렇다면 ${science ? '빛의 성질' : '평면도형의 이동'}을 이용한 레이저 장기로<br>너의 두뇌와 집중력을 시험해보지.. 움하하하~~</p><button class="intro-next" data-action="finish-intro">다음</button></section></main>`;
+  const topic = science ? '빛의 성질' : '평면도형의 이동';
+  const speechLines = [
+    `이제 ${topic}에 대해서`,
+    '충분히 이해했나?',
+    `그렇다면 ${topic}을`,
+    '이용한 레이저 장기로',
+    '너의 두뇌와 집중력을 시험해보지..',
+    '움하하하~~'
+  ];
+  app.innerHTML = `<main class="intro-page"><section class="intro-shell intro-speech-shell"><button class="intro-skip" data-action="skip-intro">건너뛰기</button><div class="intro-villain-symbol">◆</div><p class="intro-rising-speech">${speechLines.map((line, index) => `<span style="--speech-delay:${(.35 + index * 1.45).toFixed(2)}s">${line}</span>`).join('')}</p><button class="intro-next intro-speech-next" data-action="finish-intro">다음</button></section></main>`;
 }
 
 function animateMathPiece(move) {
@@ -257,7 +279,7 @@ function hostView() {
     <section class="panel stations-panel"><div class="section-head"><div><p class="kicker">LIVE ARENAS</p><h2>경기장 현황</h2></div><strong>${Object.keys(host.stations).length}대 연결</strong></div><div id="station-grid"></div></section>
     <section class="panel scoreboard-panel"><div class="section-head"><div><p class="kicker">LIVE SCOREBOARD</p><h2>실시간 순위</h2></div><button class="secondary small" data-action="fullscreen-board">전광판 크게 보기</button></div><div id="ranking"></div></section>
     <section class="panel results-panel"><div class="section-head"><div><p class="kicker">MATCH FEED</p><h2>최근 경기 결과</h2></div><span>${host.matches.length}경기 완료</span></div><div id="match-feed"></div></section>
-    <section class="panel export-panel"><div class="export-copy"><h2>게임 종료</h2><p>게임 종료(결과 공개) 버튼을 클릭하시면 지금 운영 중인 게임이 모두 종료됩니다. 게임 종료 버튼 클릭 시 진행 중인 게임 결과는 순위에 반영되지 않습니다.<br><strong>결과 공개 페이지에서 게임 결과 내용을 복사하실 수 있습니다.</strong></p></div><div class="button-row"><button class="danger end-reveal-button" data-action="open-end-session-modal" ${!host.started || host.ended ? 'disabled' : ''}>게임 종료(결과 공개)</button></div></section>
+    <section class="panel export-panel"><div class="export-copy"><h2>게임 종료</h2><p>게임 종료(결과 공개) 버튼을 클릭하시면 지금 운영 중인 게임이 모두 종료됩니다.<br>게임 종료 버튼 클릭 시 진행 중인 게임 결과는 순위에 반영되지 않습니다.<br><strong>결과 공개 페이지에서 게임 결과 내용을 복사하실 수 있습니다.</strong></p></div><div class="button-row"><button class="danger end-reveal-button" data-action="open-end-session-modal" ${!host.started || host.ended ? 'disabled' : ''}>게임 종료(결과 공개)</button></div></section>
   </main>`;
   renderHostDynamic();
   const studentUrl = `${location.origin}${location.pathname}?mode=station&room=${host.room}`;
@@ -600,17 +622,6 @@ function abortCurrentGame() {
   connectStation();
 }
 
-function pieceGuide(owner) {
-  const descriptions = [
-    ['laser', '레이저', '이동 불가 · 턴 종료 후 자동 발사 · 피격 시 유지'],
-    ['splitter', '스플리터', '직진 투과 + 대각선 면을 따라 90도 분기 반사'],
-    ['king', '왕', '어느 면이든 레이저에 맞으면 즉시 패배'],
-    ['triangle', '세모기사', '대각선 거울면에서 바깥쪽으로 90도 반사'],
-    ['square', '네모기사', '색상 거울면에서 180도 되돌아감 · 다른 면 피격 시 제거']
-  ];
-  return `<aside class="game-piece-guide ${owner}-piece-guide"><h3>${owner === 'blue' ? '청색' : '적색'} 말 기능</h3><div>${descriptions.map(([type, name, description]) => `<article><img src="/images/pieces/${owner}/piece_${type}_${owner}.png?v=20260822-2" alt="${name}"><p><b>${name}</b><span>${description}</span></p></article>`).join('')}</div></aside>`;
-}
-
 function gameView(practice = station.game?.practice) {
   const g = station.game;
   if (!g) return stationLobbyView();
@@ -620,7 +631,6 @@ function gameView(practice = station.game?.practice) {
   app.innerHTML = `<main class="game-screen">
     ${playerHud('red', red)}
     <section class="game-body">
-      ${pieceGuide('red')}
       ${playerInfoPanel('red')}
       <section class="board-stage">
         <div class="arena-caption practice-blue-caption">${g.practice ? '연습 경기' : ''}</div>
@@ -628,7 +638,6 @@ function gameView(practice = station.game?.practice) {
         <div class="arena-caption practice-red-caption">${g.practice ? '연습 경기' : ''}</div>
       </section>
       ${playerInfoPanel('blue')}
-      ${pieceGuide('blue')}
     </section>
     ${playerHud('blue', blue)}
     ${g.over ? resultOverlay() : ''}
